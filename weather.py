@@ -2,6 +2,7 @@
 import json
 import time
 import urllib.request
+from datetime import datetime
 
 FETCH_TIMEOUT = 10
 
@@ -68,5 +69,26 @@ def weather_preset(data):
         "emoji": _emoji_for(data["code"]),
         "lines": [f"{data['temp']}°", f"{data['hi']}/{data['lo']}"],
         "bg_color": (0, 12, 36),
+        "text_color": (255, 255, 255),
+    }
+
+
+def clock_preset(data, now=None):
+    """Panel preset showing the local time, plus weather when available.
+
+    The Pi's system timezone drives the time shown (set via timedatectl).
+    """
+    now = now or datetime.now()
+    time_str = now.strftime("%-I:%M")
+    if data:
+        return {
+            "emoji": _emoji_for(data["code"]),
+            "lines": [time_str, f"{data['temp']}°"],
+            "bg_color": (0, 10, 30),
+            "text_color": (255, 255, 255),
+        }
+    return {
+        "lines": [time_str],
+        "bg_color": (0, 10, 30),
         "text_color": (255, 255, 255),
     }

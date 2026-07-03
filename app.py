@@ -40,7 +40,7 @@ revert_timer = None
 weather_data = None
 render_signature = None
 
-# status is a preset key, "custom" (showing `message`), or "off".
+# status is a preset key, "custom" (showing `message`), or "clock".
 # revert_at is an epoch timestamp when the sign flips back to the default
 # status, or None. recents are previously shown custom messages, newest first.
 state = {
@@ -62,7 +62,9 @@ def _load_state():
         saved = json.loads(STATE_FILE.read_text())
     except (FileNotFoundError, ValueError):
         return
-    if saved.get("status") in list(PRESETS) + ["custom", "off"]:
+    if saved.get("status") == "off":  # pre-clock versions had a blank-panel mode
+        state["status"] = "clock"
+    elif saved.get("status") in list(PRESETS) + ["custom", "clock"]:
         state["status"] = saved["status"]
     if isinstance(saved.get("brightness"), int) and 5 <= saved["brightness"] <= 100:
         state["brightness"] = saved["brightness"]
@@ -124,30 +126,28 @@ def _in_work_hours(now=None):
     return current >= start or current < end  # overnight span
 
 
-def _weather_active():
+def _idle_clock_active():
+    """After hours with nobody claiming the sign → show the clock screen."""
     return (
         state["settings"]["weather_idle"]
         and state["status"] == DEFAULT_PRESET
         and not _in_work_hours()
-        and weather_data is not None
     )
 
 
 def _render_current(force=False):
     """Render whatever should be on the panel now; skips no-op repaints."""
     global render_signature
-    if state["status"] == "off":
-        signature = ("off",)
-    elif state["status"] == "custom":
+    now = datetime.now()
+    if state["status"] == "custom":
         message = state["message"]
         signature = ("custom", message["text"], message["color"])
-    elif _weather_active():
+    elif state["status"] == "clock" or _idle_clock_active():
         signature = (
-            "weather",
-            weather_data["temp"],
-            weather_data["code"],
-            weather_data["hi"],
-            weather_data["lo"],
+            "clock",
+            now.strftime("%H:%M"),
+            weather_data["temp"] if weather_data else None,
+            weather_data["code"] if weather_data else None,
         )
     else:
         signature = ("preset", state["status"])
@@ -156,13 +156,11 @@ def _render_current(force=False):
         return
     render_signature = signature
 
-    if signature[0] == "off":
-        display.clear()
-    elif signature[0] == "custom":
+    if signature[0] == "custom":
         message = state["message"]
         display.render_preset(build_message_preset(message["text"], message["color"]))
-    elif signature[0] == "weather":
-        display.render_preset(weather.weather_preset(weather_data))
+    elif signature[0] == "clock":
+        display.render_preset(weather.clock_preset(weather_data, now))
     else:
         display.render_preset(PRESETS[state["status"]])
 
@@ -208,7 +206,7 @@ def _scheduler_loop():
     while True:
         try:
             settings = state["settings"]
-            if settings["weather_idle"]:
+            if settings["weather_idle"] or state["status"] == "clock":
                 if settings["lat"] is None or settings["lon"] is None:
                     location = weather.detect_location()
                     if location:
@@ -234,7 +232,7 @@ def _scheduler_loop():
 
 
 def _api_payload():
-    return {**state, "showing_weather": _weather_active(), "weather": weather_data}
+    return {**state, "showing_weather": _idle_clock_active(), "weather": weather_data}
 
 
 @app.route("/")
@@ -331,7 +329,9 @@ def set_state():
             screen_changed = True
         elif "status" in data:
             status = data["status"]
-            if status != "off" and status not in PRESETS:
+            if status == "off":  # accept the old name from stale clients
+                status = "clock"
+            if status != "clock" and status not in PRESETS:
                 return jsonify(error="unknown status"), 400
             state["status"] = status
             _render_current()

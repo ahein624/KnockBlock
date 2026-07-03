@@ -380,9 +380,9 @@
         <span>{{ preset.label }}</span>
       </button>
       {% endfor %}
-      <button class="status off" data-key="off">
-        <span class="emoji">🌙</span>
-        <span>Panel Off</span>
+      <button class="status off" data-key="clock">
+        <span class="emoji">🕐</span>
+        <span>Clock &amp; Weather</span>
       </button>
     </section>
 
@@ -488,7 +488,10 @@
 
     function renderState() {
       let label, dotColor;
-      if (state.status === "off") { label = "Panel off"; dotColor = "#555"; }
+      if (state.status === "clock") {
+        label = state.weather ? "Clock · " + state.weather.temp + "°" : "Clock";
+        dotColor = "#60a5fa";
+      }
       else if (state.status === "custom") {
         label = state.message ? state.message.text : "Custom";
         dotColor = state.message ? (MSG_COLORS[state.message.color] || "#3b82f6") : "#3b82f6";

@@ -12,9 +12,11 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
   live countdown; survives restarts
 - **Live preview** — the phone UI mirrors exactly what the panel shows
-- **After-hours weather** — outside working hours, an idle sign shows current
-  temp + today's high/low (Open-Meteo, no API key; location auto-detected
-  from the Pi's public IP, overridable via settings lat/lon)
+- **Clock & weather screen** — a tappable mode showing the local time plus
+  current conditions; outside working hours an idle sign switches to it
+  automatically (Open-Meteo, no API key; location auto-detected from the
+  Pi's public IP, overridable via settings lat/lon; time follows the Pi's
+  system timezone)
 - **Brightness control**, **state persistence** across power cycles, and a
   **PWA** phone UI (Add to Home Screen for a full-screen app)
 
@@ -25,7 +27,7 @@ Everything the UI does goes through JSON endpoints, so you can script it:
 - `GET /api/state` — current status, brightness, message, recents, settings,
   weather
 - `POST /api/state` — any subset of:
-  `{"status": "free" | "on_a_call" | ... | "off"}`,
+  `{"status": "free" | "on_a_call" | ... | "clock"}`,
   `{"message": {"text": "...", "color": "blue"}}`,
   `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
   `{"settings": {"weather_idle": true, "work_start": "08:00",
