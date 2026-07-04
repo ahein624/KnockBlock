@@ -26,6 +26,19 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 - **Sleep schedule** — the panel goes dark during a configurable window
   (e.g. 22:00–07:00) whenever it's idle; a deliberately set status or custom
   message still shows
+- **On-a-call autodetect** — a tiny agent on your laptop watches the
+  camera/mic (macOS via OverSight, Windows via the ConsentStore registry)
+  and heartbeats the sign; a 15s watchdog clears the status if the agent
+  dies mid-call
+- **Focus timer** — 15/25/50-minute buttons; the panel shows FOCUS with a
+  live MM:SS countdown, then releases automatically
+- **Calendar** — point it at a Google Calendar secret iCal address (no
+  OAuth) and the sign shows "In a Meeting" during events, recurring ones
+  included
+- **Priority arbiter** — when several sources are active at once:
+  manual hold → on-call → focus → calendar → idle. Manual presses release
+  after a configurable TTL (default 2h) so a tapped button can't suppress
+  autodetect all day; the Auto button releases a hold early
 
 ## Login & security
 
@@ -67,18 +80,42 @@ Everything the UI does goes through JSON endpoints, so you can script it.
 Authenticate with `Authorization: Bearer <token>`, an `X-Api-Token` header,
 or `?token=<token>`:
 
-- `GET /api/state` — current status, brightness, message, recents, settings,
-  weather
+- `GET /api/state` — what's showing and why (`status`, `source`, `held`),
+  plus brightness, recents, focus/calendar state, settings, weather
 - `POST /api/state` — any subset of:
-  `{"status": "free" | "on_a_call" | ... | "clock"}`,
+  `{"status": "free" | "on_a_call" | ... | "clock" | "auto"}` (`auto`
+  releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
+  `{"focus_minutes": 25}` (0 cancels),
   `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
   `{"settings": {"weather_idle": true, "work_start": "08:00",
   "work_end": "18:00", "units": "f", "lat": null, "lon": null,
-  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00"}}`
-- `GET|POST /api/set/<status>` — one-URL status change; optional
-  `?minutes=N` auto-reverts to the default after N minutes
+  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00",
+  "ical_url": "https://…", "manual_ttl_minutes": 120}}`
+- `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
+  sensor; the status clears itself 15s after the last `true`
+- `GET|POST /api/set/<status>` — one-URL change for buttons:
+  `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
+  `/api/set/auto`
 - `GET /preview.png` — PNG of what the panel currently shows
+
+## On-call laptop sensors
+
+Both agents heartbeat `POST /api/oncall` every 5s while the camera or mic
+is in use, so a crashed agent just times out after 15s.
+
+**macOS** — install [OverSight](https://objective-see.org/products/oversight.html),
+then in OverSight's settings set *Execute Action* to
+`agents/oversight-knockblock.sh` (copy it anywhere) and enable *pass
+arguments*. Edit the script's `SIGN_URL`/`TOKEN` lines or export
+`KNOCKBLOCK_URL`/`KNOCKBLOCK_TOKEN`.
+
+**Windows** — run `agents/knockblock-sensor.ps1` at logon (see the
+`schtasks` one-liner in the script header). It polls the same registry keys
+Windows uses for the camera/mic tray indicators.
+
+Neither agent needs the token while the laptop is on the sign's LAN, but
+set it anyway so the buttons keep working from anywhere.
 
 ## Stream Deck
 

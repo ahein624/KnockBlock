@@ -14,9 +14,16 @@ from flask import Flask, jsonify, redirect, render_template, request, send_file,
 from PIL import Image
 
 import auth
+import calendar_source
 import weather
 from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
-from presets import DEFAULT_MESSAGE_COLOR, DEFAULT_PRESET, MESSAGE_COLORS, PRESETS
+from presets import (
+    DEFAULT_MESSAGE_COLOR,
+    DEFAULT_PRESET,
+    FOCUS_STATUS,
+    MESSAGE_COLORS,
+    PRESETS,
+)
 
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 MAX_MESSAGE_LENGTH = 80
@@ -24,7 +31,13 @@ MAX_RECENTS = 6
 MAX_REVERT_MINUTES = 12 * 60
 PREVIEW_SCALE = 6
 WEATHER_REFRESH_SECONDS = 15 * 60
-SCHEDULER_INTERVAL = 30
+CALENDAR_REFRESH_SECONDS = 5 * 60
+# 1s tick: the focus countdown repaints every second; everything else is a
+# no-op signature comparison, so the fast tick costs almost nothing.
+SCHEDULER_INTERVAL = 1
+# The on-call sensor heartbeats every ~5s; if beats stop (agent crashed,
+# laptop asleep) the status clears itself this many seconds later.
+ONCALL_TTL = 15
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_SETTINGS = {
@@ -38,6 +51,8 @@ DEFAULT_SETTINGS = {
     "sleep_enabled": False,
     "sleep_start": "22:00",
     "sleep_end": "07:00",
+    "ical_url": None,  # Google Calendar secret iCal address
+    "manual_ttl_minutes": 120,  # 0 = manual presses hold forever
 }
 
 # All black; what the panel shows during scheduled sleep.
@@ -54,19 +69,25 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 display = None  # MatrixDisplay, created in main() — needs GPIO/root
 lock = threading.Lock()
 login_attempts = {}  # ip -> (failure count, last failure timestamp)
-revert_timer = None
 weather_data = None
+calendar_events = []  # last good fetch: [(start_ts, end_ts, summary), ...]
+calendar_fetched = 0
 render_signature = None
 
-# status is a preset key, "custom" (showing `message`), or "clock".
-# revert_at is an epoch timestamp when the sign flips back to the default
-# status, or None. recents are previously shown custom messages, newest first.
+# The sign shows whichever *source* wins arbitration (see _arbitrate):
+#   manual  — a tapped button or custom message, held until `until` passes
+#             (None = forever); `explicit` means the user picked the timer,
+#             so the UI shows a countdown for it
+#   oncall  — laptop sensor heartbeats; active while now < oncall_until
+#   focus   — focus timer; panel counts down MM:SS until `until`
+#   calendar— an event from the iCal feed is happening now
+#   idle    — the default preset (plus the clock/sleep behavior)
 state = {
-    "status": DEFAULT_PRESET,
+    "manual": None,  # {"status", "message", "until", "explicit"}
+    "focus": None,  # {"until": epoch, "minutes": original duration}
+    "oncall_until": None,
     "brightness": 70,
-    "message": None,
     "recents": [],
-    "revert_at": None,
     "settings": dict(DEFAULT_SETTINGS),
 }
 
@@ -75,25 +96,61 @@ def _valid_color(color):
     return color if color in MESSAGE_COLORS else DEFAULT_MESSAGE_COLOR
 
 
+def _valid_message(message):
+    if isinstance(message, dict) and message.get("text"):
+        return {
+            "text": str(message["text"])[:MAX_MESSAGE_LENGTH],
+            "color": _valid_color(message.get("color")),
+        }
+    return None
+
+
 def _load_state():
     try:
         saved = json.loads(STATE_FILE.read_text())
     except (FileNotFoundError, ValueError):
         return
-    if saved.get("status") == "off":  # pre-clock versions had a blank-panel mode
-        state["status"] = "clock"
-    elif saved.get("status") in list(PRESETS) + ["custom", "clock"]:
-        state["status"] = saved["status"]
+
+    manual = saved.get("manual")
+    if isinstance(manual, dict):
+        status = manual.get("status")
+        message = _valid_message(manual.get("message"))
+        until = manual.get("until")
+        if status in list(PRESETS) + ["clock"] or (status == "custom" and message):
+            state["manual"] = {
+                "status": status,
+                "message": message if status == "custom" else None,
+                "until": until if isinstance(until, (int, float)) else None,
+                "explicit": bool(manual.get("explicit")),
+            }
+    elif "status" in saved:  # legacy schema: top-level status/message/revert_at
+        status = saved.get("status")
+        if status == "off":
+            status = "clock"
+        message = _valid_message(saved.get("message"))
+        revert_at = saved.get("revert_at")
+        until = revert_at if isinstance(revert_at, (int, float)) else None
+        if status in list(PRESETS) + ["clock"] and status != DEFAULT_PRESET:
+            state["manual"] = {
+                "status": status, "message": None, "until": until, "explicit": until is not None,
+            }
+        elif status == "custom" and message:
+            state["manual"] = {
+                "status": "custom", "message": message, "until": until, "explicit": until is not None,
+            }
+
+    focus = saved.get("focus")
+    if isinstance(focus, dict) and isinstance(focus.get("until"), (int, float)):
+        minutes = focus.get("minutes")
+        state["focus"] = {
+            "until": focus["until"],
+            "minutes": minutes if isinstance(minutes, int) else 0,
+        }
+    if isinstance(saved.get("oncall_until"), (int, float)):
+        state["oncall_until"] = saved["oncall_until"]
+
     if isinstance(saved.get("brightness"), int) and 5 <= saved["brightness"] <= 100:
         state["brightness"] = saved["brightness"]
-    message = saved.get("message")
-    if isinstance(message, dict) and message.get("text"):
-        state["message"] = {
-            "text": str(message["text"])[:MAX_MESSAGE_LENGTH],
-            "color": _valid_color(message.get("color")),
-        }
-    if state["status"] == "custom" and not state["message"]:
-        state["status"] = DEFAULT_PRESET
     recents = saved.get("recents")
     if isinstance(recents, list):
         state["recents"] = [
@@ -104,8 +161,6 @@ def _load_state():
             for entry in recents
             if isinstance(entry, dict) and entry.get("text")
         ][:MAX_RECENTS]
-    if isinstance(saved.get("revert_at"), (int, float)):
-        state["revert_at"] = saved["revert_at"]
     settings = saved.get("settings")
     if isinstance(settings, dict):
         merged = dict(DEFAULT_SETTINGS)
@@ -124,6 +179,12 @@ def _load_state():
         for key in ("lat", "lon"):
             if isinstance(settings.get(key), (int, float)):
                 merged[key] = settings[key]
+        url = settings.get("ical_url")
+        if isinstance(url, str) and url.startswith(("http://", "https://")):
+            merged["ical_url"] = url
+        ttl = settings.get("manual_ttl_minutes")
+        if isinstance(ttl, int) and 0 <= ttl <= MAX_REVERT_MINUTES:
+            merged["manual_ttl_minutes"] = ttl
         state["settings"] = merged
 
 
@@ -148,44 +209,91 @@ def _in_work_hours(now=None):
     return _in_window(settings["work_start"], settings["work_end"], now)
 
 
-def _idle_clock_active():
+def _arbitrate(now):
+    """Decide what the sign shows. Highest-priority active source wins:
+    manual hold → on-call → focus timer → calendar → idle.
+
+    Returns (source, status, message, countdown_until). Expired holds and
+    timers are cleared as a side effect, so callers must hold the lock.
+    """
+    manual = state["manual"]
+    if manual and manual["until"] is not None and now >= manual["until"]:
+        state["manual"] = manual = None
+    if manual:
+        until = manual["until"] if manual["explicit"] else None
+        return "manual", manual["status"], manual["message"], until
+    if state["oncall_until"] is not None and now >= state["oncall_until"]:
+        state["oncall_until"] = None  # watchdog: heartbeats stopped
+    if state["oncall_until"]:
+        return "oncall", "on_a_call", None, None
+    focus = state["focus"]
+    if focus and now >= focus["until"]:
+        state["focus"] = focus = None
+    if focus:
+        return "focus", "focus", None, focus["until"]
+    if calendar_source.current(calendar_events, now):
+        return "calendar", "in_a_meeting", None, None
+    return "idle", DEFAULT_PRESET, None, None
+
+
+def _set_manual(status, message, revert_minutes):
+    """Install a manual hold. An explicit timer wins; otherwise the default
+    TTL applies so a tapped button doesn't suppress autodetect all day."""
+    if revert_minutes is not None:
+        until, explicit = time.time() + revert_minutes * 60, True
+    else:
+        ttl = state["settings"]["manual_ttl_minutes"]
+        until, explicit = (time.time() + ttl * 60 if ttl else None), False
+    state["manual"] = {
+        "status": status, "message": message, "until": until, "explicit": explicit,
+    }
+
+
+def _idle_clock_active(source, now=None):
     """After hours with nobody claiming the sign → show the clock screen."""
     return (
         state["settings"]["weather_idle"]
-        and state["status"] == DEFAULT_PRESET
-        and not _in_work_hours()
+        and source == "idle"
+        and not _in_work_hours(now)
     )
 
 
-def _sleeping(now=None):
-    """Scheduled panel rest. Only idle screens (default preset, clock) go
-    dark — a deliberately set status or custom message still shows."""
+def _sleeping(source, status, now=None):
+    """Scheduled panel rest. Only idle screens (idle default, clock) go
+    dark — calls, focus, meetings, and held statuses still show."""
     settings = state["settings"]
     return (
         settings["sleep_enabled"]
-        and state["status"] in (DEFAULT_PRESET, "clock")
+        and (source == "idle" or status == "clock")
         and _in_window(settings["sleep_start"], settings["sleep_end"], now or datetime.now())
     )
+
+
+def _focus_countdown(now):
+    left = max(0, int(round(state["focus"]["until"] - now))) if state["focus"] else 0
+    return f"{left // 60}:{left % 60:02d}"
 
 
 def _render_current(force=False):
     """Render whatever should be on the panel now; skips no-op repaints."""
     global render_signature
-    now = datetime.now()
-    if _sleeping(now):
+    now_dt = datetime.now()
+    source, status, message, _ = _arbitrate(time.time())
+    if _sleeping(source, status, now_dt):
         signature = ("sleep",)
-    elif state["status"] == "custom":
-        message = state["message"]
+    elif status == "custom":
         signature = ("custom", message["text"], message["color"])
-    elif state["status"] == "clock" or _idle_clock_active():
+    elif status == "focus":
+        signature = ("focus", _focus_countdown(time.time()))
+    elif status == "clock" or _idle_clock_active(source, now_dt):
         signature = (
             "clock",
-            now.strftime("%H:%M"),
+            now_dt.strftime("%H:%M"),
             weather_data["temp"] if weather_data else None,
             weather_data["code"] if weather_data else None,
         )
     else:
-        signature = ("preset", state["status"])
+        signature = ("preset", status)
 
     if not force and signature == render_signature:
         return
@@ -194,40 +302,13 @@ def _render_current(force=False):
     if signature[0] == "sleep":
         display.render_preset(SLEEP_PRESET)
     elif signature[0] == "custom":
-        message = state["message"]
         display.render_preset(build_message_preset(message["text"], message["color"]))
+    elif signature[0] == "focus":
+        display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
     elif signature[0] == "clock":
-        display.render_preset(weather.clock_preset(weather_data, now))
+        display.render_preset(weather.clock_preset(weather_data, now_dt))
     else:
-        display.render_preset(PRESETS[state["status"]])
-
-
-def _cancel_revert():
-    global revert_timer
-    if revert_timer is not None:
-        revert_timer.cancel()
-        revert_timer = None
-    state["revert_at"] = None
-
-
-def _revert_now():
-    global revert_timer
-    with lock:
-        revert_timer = None
-        state["revert_at"] = None
-        state["status"] = DEFAULT_PRESET
-        _render_current()
-        _save_state()
-
-
-def _arm_revert(seconds):
-    global revert_timer
-    if revert_timer is not None:
-        revert_timer.cancel()
-    state["revert_at"] = int(time.time() + seconds)
-    revert_timer = threading.Timer(seconds, _revert_now)
-    revert_timer.daemon = True
-    revert_timer.start()
+        display.render_preset(PRESETS[status])
 
 
 def _remember_message(text, color):
@@ -237,13 +318,26 @@ def _remember_message(text, color):
     del recents[MAX_RECENTS:]
 
 
+def _refresh_calendar():
+    global calendar_events, calendar_fetched
+    url = state["settings"]["ical_url"]
+    calendar_fetched = time.time()
+    if not url:
+        calendar_events = []
+        return
+    fresh = calendar_source.fetch(url)
+    if fresh is not None:  # on failure keep the last good copy
+        calendar_events = fresh
+
+
 def _scheduler_loop():
-    """Keeps weather fresh and flips the idle screen at work-hour boundaries."""
+    """Keeps weather and calendar fresh; repaints when the signature moves
+    (countdowns, expiring holds, work-hour/sleep boundaries)."""
     global weather_data
     while True:
         try:
             settings = state["settings"]
-            if settings["weather_idle"] or state["status"] == "clock":
+            if settings["weather_idle"]:
                 if settings["lat"] is None or settings["lon"] is None:
                     location = weather.detect_location()
                     if location:
@@ -261,6 +355,10 @@ def _scheduler_loop():
                         )
                         if fresh:
                             weather_data = fresh
+            if settings["ical_url"] and (
+                time.time() - calendar_fetched > CALENDAR_REFRESH_SECONDS
+            ):
+                _refresh_calendar()
             with lock:
                 _render_current()
         except Exception:
@@ -269,10 +367,32 @@ def _scheduler_loop():
 
 
 def _api_payload():
+    """Assumes the caller holds the lock (arbitration mutates expired holds)."""
+    now = time.time()
+    source, status, message, until = _arbitrate(now)
+    manual = state["manual"]
+    event = calendar_source.current(calendar_events, now)
     return {
-        **state,
-        "showing_weather": _idle_clock_active(),
-        "sleeping": _sleeping(),
+        "status": status,
+        "message": message,
+        "source": source,
+        "revert_at": until,
+        "held": manual is not None,
+        "hold_until": manual["until"] if manual else None,
+        "focus": state["focus"],
+        "oncall": source == "oncall" or bool(state["oncall_until"]),
+        "calendar": {
+            "configured": bool(state["settings"]["ical_url"]),
+            "supported": calendar_source.available(),
+            "busy": event is not None,
+            "event": event[2] if event else None,
+            "until": event[1] if event else None,
+        },
+        "recents": state["recents"],
+        "brightness": state["brightness"],
+        "settings": state["settings"],
+        "showing_weather": _idle_clock_active(source),
+        "sleeping": _sleeping(source, status),
         "weather": weather_data,
     }
 
@@ -387,12 +507,14 @@ def api_token():
 
 @app.route("/")
 def index():
+    with lock:
+        payload = _api_payload()
     return render_template(
         "index.html",
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
         api_token=auth.api_token(),
-        state=_api_payload(),
+        state=payload,
         labels_json=json.dumps({key: preset["label"] for key, preset in PRESETS.items()}),
         preset_colors_json=json.dumps(
             {key: preset["ui_color"] for key, preset in PRESETS.items()}
@@ -420,7 +542,8 @@ def preview():
 
 @app.route("/api/state")
 def get_state():
-    return jsonify(_api_payload())
+    with lock:
+        return jsonify(_api_payload())
 
 
 @app.route("/api/state", methods=["POST"])
@@ -465,57 +588,83 @@ def set_state():
                             settings[key] = float(incoming[key])
                         except (TypeError, ValueError):
                             return jsonify(error=f"{key} must be a number"), 400
+            if "ical_url" in incoming:
+                url = (str(incoming["ical_url"] or "")).strip()
+                if url and not url.startswith(("http://", "https://")):
+                    return jsonify(error="ical_url must be an http(s) URL"), 400
+                if (url or None) != settings["ical_url"]:
+                    settings["ical_url"] = url or None
+                    global calendar_fetched, calendar_events
+                    calendar_events = []
+                    calendar_fetched = 0  # scheduler refetches on next tick
+            if "manual_ttl_minutes" in incoming:
+                try:
+                    ttl = int(incoming["manual_ttl_minutes"])
+                except (TypeError, ValueError):
+                    return jsonify(error="manual_ttl_minutes must be a number"), 400
+                if not 0 <= ttl <= MAX_REVERT_MINUTES:
+                    return jsonify(error="manual_ttl_minutes out of range"), 400
+                settings["manual_ttl_minutes"] = ttl
             _render_current()
 
-        screen_changed = False
+        minutes = data.get("revert_minutes")
+        if minutes is not None:
+            try:
+                minutes = int(minutes)
+            except (TypeError, ValueError):
+                return jsonify(error="revert_minutes must be a number"), 400
+            if not 1 <= minutes <= MAX_REVERT_MINUTES:
+                return jsonify(error="revert_minutes out of range"), 400
+
         if "message" in data:
             message = data["message"] or {}
             text = str(message.get("text", "")).strip()[:MAX_MESSAGE_LENGTH]
             if not text:
                 return jsonify(error="message text is required"), 400
             color = _valid_color(message.get("color"))
-            state["message"] = {"text": text, "color": color}
-            state["status"] = "custom"
+            _set_manual("custom", {"text": text, "color": color}, minutes)
             _remember_message(text, color)
             _render_current()
-            screen_changed = True
         elif "status" in data:
             status = data["status"]
             if status == "off":  # accept the old name from stale clients
                 status = "clock"
-            if status != "clock" and status not in PRESETS:
-                return jsonify(error="unknown status"), 400
-            state["status"] = status
-            _render_current()
-            screen_changed = True
-
-        if screen_changed:
-            minutes = data.get("revert_minutes")
-            if minutes is not None:
-                try:
-                    minutes = int(minutes)
-                except (TypeError, ValueError):
-                    return jsonify(error="revert_minutes must be a number"), 400
-                if not 1 <= minutes <= MAX_REVERT_MINUTES:
-                    return jsonify(error="revert_minutes out of range"), 400
-                _arm_revert(minutes * 60)
+            if status == "auto":
+                state["manual"] = None  # release the hold; autodetect takes over
+            elif status == "clock" or status in PRESETS:
+                _set_manual(status, None, minutes)
             else:
-                _cancel_revert()
+                return jsonify(error="unknown status"), 400
+            _render_current()
+
+        if "focus_minutes" in data:
+            try:
+                focus_minutes = int(data["focus_minutes"] or 0)
+            except (TypeError, ValueError):
+                return jsonify(error="focus_minutes must be a number"), 400
+            if not 0 <= focus_minutes <= MAX_REVERT_MINUTES:
+                return jsonify(error="focus_minutes out of range"), 400
+            state["focus"] = (
+                {"until": time.time() + focus_minutes * 60, "minutes": focus_minutes}
+                if focus_minutes
+                else None
+            )
+            _render_current()
 
         _save_state()
-    return jsonify(_api_payload())
+        return jsonify(_api_payload())
 
 
 @app.route("/api/set/<status>", methods=["GET", "POST"])
 def quick_set(status):
-    """One-URL status change for Stream Deck / Shortcuts buttons.
+    """One-URL change for Stream Deck / Shortcuts buttons.
 
-    Example: /api/set/on_a_call?minutes=30&token=...
+    /api/set/on_a_call?minutes=30 — hold a status (default hold TTL if no
+    minutes), /api/set/focus?minutes=25 — start a focus timer,
+    /api/set/auto — release the manual hold.
     """
     if status == "off":
         status = "clock"
-    if status != "clock" and status not in PRESETS:
-        return jsonify(error="unknown status"), 400
     minutes = request.args.get("minutes")
     if minutes is not None:
         try:
@@ -525,14 +674,37 @@ def quick_set(status):
         if not 1 <= minutes <= MAX_REVERT_MINUTES:
             return jsonify(error="minutes out of range"), 400
     with lock:
-        state["status"] = status
-        _render_current()
-        if minutes is not None:
-            _arm_revert(minutes * 60)
+        if status == "auto":
+            state["manual"] = None
+        elif status == "focus":
+            minutes = minutes or 25
+            state["focus"] = {"until": time.time() + minutes * 60, "minutes": minutes}
+        elif status == "clock" or status in PRESETS:
+            _set_manual(status, None, minutes)
         else:
-            _cancel_revert()
+            return jsonify(error="unknown status"), 400
+        _render_current()
         _save_state()
-    return jsonify(_api_payload())
+        return jsonify(_api_payload())
+
+
+@app.route("/api/oncall", methods=["POST"])
+def oncall():
+    """Heartbeat from a laptop camera/mic sensor agent.
+
+    The agent POSTs {"active": true} every ~5s during a call and
+    {"active": false} once when it ends. If the beats just stop (agent
+    crashed, laptop lid closed) the watchdog clears the status ONCALL_TTL
+    seconds after the last one.
+    """
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("active"), bool):
+        return jsonify(error="active must be true or false"), 400
+    with lock:
+        state["oncall_until"] = time.time() + ONCALL_TTL if data["active"] else None
+        _render_current()
+        _save_state()
+        return jsonify(_api_payload())
 
 
 def _set_password_interactive():
@@ -571,13 +743,7 @@ def main():
     _load_state()
     display.set_brightness(state["brightness"])
     with lock:
-        if state["revert_at"] is not None:
-            remaining = state["revert_at"] - time.time()
-            if remaining <= 0:
-                state["status"] = DEFAULT_PRESET
-                state["revert_at"] = None
-            else:
-                _arm_revert(remaining)
+        # Expired holds/timers clear themselves inside _arbitrate.
         _render_current(force=True)
         _save_state()
     threading.Thread(target=_scheduler_loop, daemon=True).start()
