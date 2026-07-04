@@ -325,6 +325,44 @@
   }
   .units button.sel { color: #fff; background: var(--accent); }
 
+  /* ---- API token ---- */
+  .token-row { display: flex; align-items: center; gap: 8px; }
+  .token-row code {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .token-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s;
+    flex-shrink: 0;
+  }
+  .token-btn:active { transform: scale(0.93); }
+  .hint { margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--ink-dim); }
+  .hint code { font-size: 0.75rem; word-break: break-all; }
+
+  .logout {
+    justify-self: center;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 650;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+
   #toast {
     position: fixed;
     left: 50%;
@@ -431,7 +469,36 @@
           <button data-u="c">°C</button>
         </div>
       </div>
+      <div class="setting-row">
+        <span>😴 Screen off overnight</span>
+        <label class="switch">
+          <input type="checkbox" id="sleep-toggle">
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="hours-row">
+        <span class="sep">Off</span>
+        <input type="time" id="sleep-start">
+        <span class="sep">to</span>
+        <input type="time" id="sleep-end">
+      </div>
     </section>
+
+    <section class="card">
+      <h2>Stream Deck &amp; API</h2>
+      <div class="token-row">
+        <code id="token">{{ api_token }}</code>
+        <button class="token-btn" id="token-copy">Copy</button>
+        <button class="token-btn" id="token-regen" title="Generate a new token">↻</button>
+      </div>
+      <p class="hint">
+        Point a Stream Deck button at
+        <code>/api/set/on_a_call?minutes=30&amp;token=…</code>, or send the
+        token as an <code>Authorization: Bearer</code> header to any endpoint.
+      </p>
+    </section>
+
+    <a class="logout" href="/logout">Log out</a>
   </main>
   <div id="toast"></div>
 
@@ -488,7 +555,11 @@
 
     function renderState() {
       let label, dotColor;
-      if (state.status === "clock") {
+      if (state.sleeping) {
+        label = "Sleeping";
+        dotColor = "#666";
+      }
+      else if (state.status === "clock") {
         label = state.weather ? "Clock · " + state.weather.temp + "°" : "Clock";
         dotColor = "#60a5fa";
       }
@@ -507,9 +578,13 @@
 
       const settings = state.settings || {};
       $("weather-toggle").checked = !!settings.weather_idle;
+      $("sleep-toggle").checked = !!settings.sleep_enabled;
       const ws = $("work-start"), we = $("work-end");
       if (document.activeElement !== ws) ws.value = settings.work_start || "08:00";
       if (document.activeElement !== we) we.value = settings.work_end || "18:00";
+      const ss = $("sleep-start"), se = $("sleep-end");
+      if (document.activeElement !== ss) ss.value = settings.sleep_start || "22:00";
+      if (document.activeElement !== se) se.value = settings.sleep_end || "07:00";
       document.querySelectorAll(".units button").forEach((b) =>
         b.classList.toggle("sel", b.dataset.u === (settings.units || "f")));
 
@@ -549,6 +624,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(partial),
         });
+        if (res.status === 401) { location.href = "/login"; return; }
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || "Request failed");
         state = body;
@@ -562,6 +638,7 @@
     async function syncState() {
       try {
         const res = await fetch("/api/state");
+        if (res.status === 401) { location.href = "/login"; return; }
         if (!res.ok) return;
         const fresh = await res.json();
         const changed = JSON.stringify(fresh) !== JSON.stringify(state);
@@ -615,6 +692,41 @@
     });
     $("work-end").addEventListener("change", (event) => {
       if (event.target.value) sendUpdate({ settings: { work_end: event.target.value } });
+    });
+    $("sleep-toggle").addEventListener("change", (event) => {
+      buzz();
+      sendUpdate({ settings: { sleep_enabled: event.target.checked } });
+    });
+    $("sleep-start").addEventListener("change", (event) => {
+      if (event.target.value) sendUpdate({ settings: { sleep_start: event.target.value } });
+    });
+    $("sleep-end").addEventListener("change", (event) => {
+      if (event.target.value) sendUpdate({ settings: { sleep_end: event.target.value } });
+    });
+
+    $("token-copy").addEventListener("click", async () => {
+      buzz();
+      const token = $("token").textContent;
+      try {
+        await navigator.clipboard.writeText(token);
+        showToast("Token copied");
+      } catch (err) {
+        // clipboard API needs HTTPS; fall back to a selectable prompt
+        window.prompt("Copy the token:", token);
+      }
+    });
+    $("token-regen").addEventListener("click", async () => {
+      if (!window.confirm("Generate a new token? Existing Stream Deck buttons will stop working.")) return;
+      buzz();
+      try {
+        const res = await fetch("/api/token", { method: "POST" });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Request failed");
+        $("token").textContent = body.token;
+        showToast("New token generated");
+      } catch (err) {
+        showToast(err.message || "Couldn't reach the sign", true);
+      }
     });
     document.querySelectorAll(".units button").forEach((b) => {
       b.addEventListener("click", () => {
