@@ -17,23 +17,33 @@ AUTH_FILE = Path(__file__).resolve().parent / "auth.json"
 
 _lock = threading.Lock()
 _data = None
+_loaded_mtime = None
 
 
 def _load():
-    global _data
-    if _data is None:
+    """Read auth.json, re-reading if it changed on disk — `--set-password`
+    runs in a separate process while the server keeps running."""
+    global _data, _loaded_mtime
+    try:
+        mtime = AUTH_FILE.stat().st_mtime
+    except FileNotFoundError:
+        mtime = None
+    if _data is None or mtime != _loaded_mtime:
         try:
             _data = json.loads(AUTH_FILE.read_text())
         except (FileNotFoundError, ValueError):
             _data = {}
+        _loaded_mtime = mtime
     return _data
 
 
 def _save():
+    global _loaded_mtime
     tmp = AUTH_FILE.with_suffix(".auth.tmp")
     tmp.write_text(json.dumps(_data))
     tmp.chmod(0o600)
     tmp.replace(AUTH_FILE)
+    _loaded_mtime = AUTH_FILE.stat().st_mtime
 
 
 def secret_key():
