@@ -41,6 +41,22 @@ This also prints the **API token** used by scripted clients
 button). Logins get a long-lived session cookie — right for a personal PWA.
 Repeated failed logins back off with a per-IP lockout.
 
+**LAN clients skip the password entirely.** A request counts as local only
+when every check agrees: the TCP source address is private, no forwarding
+headers (`X-Forwarded-For`, `X-Real-IP`, `CF-*`) are present, the source
+isn't a known reverse proxy, and the request isn't addressed to the public
+hostname. Public traffic that reaches the sign through a proxy on the same
+LAN therefore still needs the password. Two optional keys in `auth.json`
+configure the site-specific parts:
+
+```json
+{"public_host": "sign.example.com", "untrusted_proxies": ["192.168.1.5"]}
+```
+
+Set `untrusted_proxies` to the LAN address(es) of whatever relays outside
+traffic to the sign (reverse proxy, tunnel daemon), and `public_host` to the
+domain it serves.
+
 If you expose the sign to the internet, put it behind HTTPS (a reverse proxy
 like Caddy, or a Cloudflare tunnel) — over plain HTTP the password and token
 travel in the clear. A Tailscale/VPN-only setup avoids the exposure entirely.

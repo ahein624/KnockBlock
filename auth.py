@@ -96,3 +96,20 @@ def regenerate_token():
         data["api_token"] = secrets.token_urlsafe(24)
         _save()
         return data["api_token"]
+
+
+def untrusted_proxies():
+    """LAN addresses that relay outside traffic (e.g. a reverse proxy).
+
+    Requests from these never count as local even though the address is
+    private. Site-specific, so configured by hand in auth.json.
+    """
+    values = _load().get("untrusted_proxies")
+    return [str(v) for v in values] if isinstance(values, list) else []
+
+
+def public_host():
+    """Hostname the sign is published under; requests for it always
+    require auth. Configured by hand in auth.json."""
+    host = _load().get("public_host")
+    return str(host).lower() if host else None

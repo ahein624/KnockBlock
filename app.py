@@ -1,6 +1,7 @@
 """Flask server that lets a phone control the KnockBlock LED status sign."""
 import argparse
 import getpass
+import ipaddress
 import json
 import re
 import threading
@@ -283,9 +284,46 @@ def _request_token():
     return request.headers.get("X-Api-Token") or request.args.get("token")
 
 
+# Headers a reverse proxy (nginx, Cloudflare) adds when relaying traffic.
+# A request straight from a LAN client never carries these.
+PROXY_HEADERS = (
+    "X-Forwarded-For",
+    "X-Real-IP",
+    "X-Forwarded-Proto",
+    "CF-Connecting-IP",
+    "CF-Ray",
+)
+
+
+def _is_local_request():
+    """True only for LAN clients talking directly to the sign.
+
+    Public traffic reaches the Pi through a reverse proxy that itself
+    sits on the LAN, so a private source address alone proves nothing.
+    Every layer must agree: private source, no proxy headers, source not
+    a known proxy, and not addressed to the public hostname.
+    """
+    try:
+        addr = ipaddress.ip_address(request.remote_addr or "")
+    except ValueError:
+        return False
+    if not (addr.is_private or addr.is_loopback):
+        return False
+    if any(request.headers.get(h) for h in PROXY_HEADERS):
+        return False
+    if request.remote_addr in auth.untrusted_proxies():
+        return False
+    host = (request.host or "").split(":")[0].lower()
+    if auth.public_host() and host == auth.public_host():
+        return False
+    return True
+
+
 @app.before_request
 def _require_auth():
     if request.path == "/login" or request.path.startswith("/static/"):
+        return None
+    if _is_local_request():
         return None
     if session.get("authed"):
         return None
@@ -308,7 +346,7 @@ def _login_wait(ip):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if session.get("authed"):
+    if session.get("authed") or _is_local_request():
         return redirect("/")
     if not auth.password_set():
         return render_template("login.html", setup_needed=True, error=None)
@@ -338,9 +376,9 @@ def logout():
 
 @app.route("/api/token", methods=["GET", "POST"])
 def api_token():
-    # Session-only: a leaked token shouldn't be able to mint replacements,
-    # and token-authed clients have no business reading it back.
-    if not session.get("authed"):
+    # Session or local only: a leaked token shouldn't be able to mint
+    # replacements, and token-authed clients have no business reading it back.
+    if not (session.get("authed") or _is_local_request()):
         return jsonify(error="unauthorized"), 401
     if request.method == "POST":
         return jsonify(token=auth.regenerate_token())
