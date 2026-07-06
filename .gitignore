@@ -12,3 +12,6 @@ static/*.png
 
 # Local tool config
 .claude/
+
+# Uploaded / fetched panel media
+media/

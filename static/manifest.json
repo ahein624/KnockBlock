@@ -1,12 +1,12 @@
 {
-  "name": "KnockBlock",
-  "short_name": "KnockBlock",
+  "name": "AH.knockblock",
+  "short_name": "knockblock",
   "description": "Phone-controlled office status sign",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#111114",
-  "theme_color": "#111114",
+  "background_color": "#0a0b0f",
+  "theme_color": "#0a0b0f",
   "icons": [
     { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png" }

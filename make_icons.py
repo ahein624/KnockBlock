@@ -3,16 +3,29 @@
 Run once after deploying (any machine with Pillow):
     ./venv/bin/python3 make_icons.py
 
-The icon is a dark rounded square with a 2x2 grid of dots in the four
-status colors — a nod to the LED panel itself.
+The icon is the AH. monogram over a row of dots in the four status
+colors — a nod to the LED panel itself.
 """
+import os
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DOT_COLORS = ["#e5484d", "#30a46c", "#e8912d", "#8e4ec6"]
 BACKGROUND = "#16181d"
+FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+]
+
+
+def _font(size):
+    for path in FONT_CANDIDATES:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
 
 
 def draw_icon(size, rounded=True):
@@ -21,15 +34,24 @@ def draw_icon(size, rounded=True):
     radius = int(size * 0.22) if rounded else 0
     draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=BACKGROUND)
 
-    offset = size * 0.15
-    dot_radius = size * 0.105
-    centers = [
-        (size / 2 - offset, size / 2 - offset),
-        (size / 2 + offset, size / 2 - offset),
-        (size / 2 - offset, size / 2 + offset),
-        (size / 2 + offset, size / 2 + offset),
-    ]
-    for (cx, cy), color in zip(centers, DOT_COLORS):
+    # "AH." monogram, slightly above center.
+    font = _font(int(size * 0.34))
+    bbox = draw.textbbox((0, 0), "AH.", font=font)
+    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text(
+        ((size - text_w) / 2 - bbox[0], size * 0.42 - text_h / 2 - bbox[1]),
+        "AH.",
+        font=font,
+        fill="#f2f2f7",
+    )
+
+    # Status-color dots underneath, like a lit pixel row.
+    dot_radius = size * 0.052
+    spacing = size * 0.16
+    start_x = size / 2 - spacing * 1.5
+    cy = size * 0.70
+    for i, color in enumerate(DOT_COLORS):
+        cx = start_x + spacing * i
         draw.ellipse(
             [cx - dot_radius, cy - dot_radius, cx + dot_radius, cy + dot_radius],
             fill=color,

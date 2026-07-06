@@ -15,6 +15,7 @@ from PIL import Image
 
 import auth
 import calendar_source
+import media
 import weather
 from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
 from presets import (
@@ -64,6 +65,7 @@ LOGIN_LOCK_MAX = 600
 
 app = Flask(__name__)
 app.secret_key = auth.secret_key()
+app.config["MAX_CONTENT_LENGTH"] = media.MAX_UPLOAD_BYTES
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=180)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 display = None  # MatrixDisplay, created in main() — needs GPIO/root
@@ -73,6 +75,8 @@ weather_data = None
 calendar_events = []  # last good fetch: [(start_ts, end_ts, summary), ...]
 calendar_fetched = 0
 render_signature = None
+media_frames = None  # [(64x32 RGB frame, seconds), ...] for status "media"
+media_generation = 0  # bumps when new media is set, so playback restarts
 
 # The sign shows whichever *source* wins arbitration (see _arbitrate):
 #   manual  — a tapped button or custom message, held until `until` passes
@@ -111,15 +115,22 @@ def _load_state():
     except (FileNotFoundError, ValueError):
         return
 
+    global media_frames
     manual = saved.get("manual")
     if isinstance(manual, dict):
         status = manual.get("status")
         message = _valid_message(manual.get("message"))
         until = manual.get("until")
-        if status in list(PRESETS) + ["clock"] or (status == "custom" and message):
+        ok = status in list(PRESETS) + ["clock"] or (status == "custom" and message)
+        if status == "media":
+            media_frames = media.load_current()
+            ok = media_frames is not None
+        if ok:
+            info = manual.get("media")
             state["manual"] = {
                 "status": status,
                 "message": message if status == "custom" else None,
+                "media": info if status == "media" and isinstance(info, dict) else None,
                 "until": until if isinstance(until, (int, float)) else None,
                 "explicit": bool(manual.get("explicit")),
             }
@@ -236,7 +247,7 @@ def _arbitrate(now):
     return "idle", DEFAULT_PRESET, None, None
 
 
-def _set_manual(status, message, revert_minutes):
+def _set_manual(status, message, revert_minutes, media_info=None):
     """Install a manual hold. An explicit timer wins; otherwise the default
     TTL applies so a tapped button doesn't suppress autodetect all day."""
     if revert_minutes is not None:
@@ -245,8 +256,16 @@ def _set_manual(status, message, revert_minutes):
         ttl = state["settings"]["manual_ttl_minutes"]
         until, explicit = (time.time() + ttl * 60 if ttl else None), False
     state["manual"] = {
-        "status": status, "message": message, "until": until, "explicit": explicit,
+        "status": status, "message": message, "media": media_info,
+        "until": until, "explicit": explicit,
     }
+
+
+def _set_media(frames, media_info, revert_minutes):
+    global media_frames, media_generation
+    media_frames = frames
+    media_generation += 1
+    _set_manual("media", None, revert_minutes, media_info)
 
 
 def _idle_clock_active(source, now=None):
@@ -281,6 +300,8 @@ def _render_current(force=False):
     source, status, message, _ = _arbitrate(time.time())
     if _sleeping(source, status, now_dt):
         signature = ("sleep",)
+    elif status == "media":
+        signature = ("media", media_generation)
     elif status == "custom":
         signature = ("custom", message["text"], message["color"])
     elif status == "focus":
@@ -301,6 +322,8 @@ def _render_current(force=False):
 
     if signature[0] == "sleep":
         display.render_preset(SLEEP_PRESET)
+    elif signature[0] == "media":
+        display.play_frames(media_frames or [])
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
@@ -379,6 +402,7 @@ def _api_payload():
         "revert_at": until,
         "held": manual is not None,
         "hold_until": manual["until"] if manual else None,
+        "media": manual.get("media") if manual else None,
         "focus": state["focus"],
         "oncall": source == "oncall" or bool(state["oncall_until"]),
         "calendar": {
@@ -683,6 +707,64 @@ def quick_set(status):
             _set_manual(status, None, minutes)
         else:
             return jsonify(error="unknown status"), 400
+        _render_current()
+        _save_state()
+        return jsonify(_api_payload())
+
+
+def _parse_revert_minutes(value):
+    """→ (minutes or None, error or None)."""
+    if value is None:
+        return None, None
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None, "revert_minutes must be a number"
+    if not 1 <= value <= MAX_REVERT_MINUTES:
+        return None, "revert_minutes out of range"
+    return value, None
+
+
+@app.route("/api/gif", methods=["POST"])
+def random_gif():
+    """Fetch a random GIF (optionally for a search) and put it on the panel."""
+    data = request.get_json(silent=True) or {}
+    minutes, err = _parse_revert_minutes(data.get("revert_minutes"))
+    if err:
+        return jsonify(error=err), 400
+    query = str(data.get("query") or "")[:60]
+    try:
+        raw, used_query = media.fetch_random_gif(query)
+        frames = media.frames_from_bytes(raw)
+    except (RuntimeError, ValueError) as exc:
+        return jsonify(error=str(exc)), 502
+    media.save_current(raw, "gif")
+    with lock:
+        _set_media(frames, {"kind": "gif", "label": f"GIF · {used_query}"}, minutes)
+        _render_current()
+        _save_state()
+        return jsonify(_api_payload())
+
+
+@app.route("/api/upload", methods=["POST"])
+def upload_media():
+    """Show an uploaded image or GIF on the panel."""
+    file = request.files.get("file")
+    if file is None or not file.filename:
+        return jsonify(error="attach a file field named 'file'"), 400
+    minutes, err = _parse_revert_minutes(request.form.get("revert_minutes"))
+    if err:
+        return jsonify(error=err), 400
+    raw = file.read()
+    try:
+        frames = media.frames_from_bytes(raw)
+    except ValueError:
+        return jsonify(error="that doesn't look like an image or GIF"), 400
+    kind = "gif" if len(frames) > 1 else "image"
+    media.save_current(raw, kind)
+    label = file.filename[:40]
+    with lock:
+        _set_media(frames, {"kind": kind, "label": label}, minutes)
         _render_current()
         _save_state()
         return jsonify(_api_payload())

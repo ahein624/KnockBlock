@@ -1,4 +1,4 @@
-# KnockBlock
+# AH.knockblock
 
 A phone-controlled office status sign. Tap a button on your phone; the status
 instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
@@ -35,6 +35,10 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 - **Calendar** — point it at a Google Calendar secret iCal address (no
   OAuth) and the sign shows "In a Meeting" during events, recurring ones
   included
+- **GIFs & images** — a dice button fetches a random funny GIF (Tenor/Giphy,
+  no API key needed) and plays it on the panel; upload any image or animated
+  GIF from the phone. Media rides the manual-hold rules, so the hold TTL and
+  timer chips keep a joke from becoming your all-day status
 - **Priority arbiter** — when several sources are active at once:
   manual hold → on-call → focus → calendar → idle. Manual presses release
   after a configurable TTL (default 2h) so a tapped button can't suppress
@@ -94,6 +98,10 @@ or `?token=<token>`:
   "ical_url": "https://…", "manual_ttl_minutes": 120}}`
 - `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
   sensor; the status clears itself 15s after the last `true`
+- `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
+  optional); fetches a random GIF and plays it
+- `POST /api/upload` — multipart `file` (image or GIF) plus optional
+  `revert_minutes`; shows it on the panel
 - `GET|POST /api/set/<status>` — one-URL change for buttons:
   `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
   `/api/set/auto`
