@@ -50,8 +50,15 @@ def frames_from_bytes(raw):
     frames = []
     for frame in ImageSequence.Iterator(image):
         duration = frame.info.get("duration", DEFAULT_FRAME_SECONDS * 1000) / 1000
-        fitted = ImageOps.fit(
+        # Letterbox rather than crop: scale to fit, centered on black —
+        # unlit pixels read as bezel on an LED panel, so nothing is lost.
+        scaled = ImageOps.contain(
             frame.convert("RGB"), (PANEL_COLS, PANEL_ROWS), Image.LANCZOS
+        )
+        fitted = Image.new("RGB", (PANEL_COLS, PANEL_ROWS), (0, 0, 0))
+        fitted.paste(
+            scaled,
+            ((PANEL_COLS - scaled.width) // 2, (PANEL_ROWS - scaled.height) // 2),
         )
         frames.append((fitted, max(duration, MIN_FRAME_SECONDS)))
         if len(frames) >= MAX_FRAMES:
