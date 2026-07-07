@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image, ImageOps, ImageSequence
 
 import auth
-from matrix import PANEL_COLS, PANEL_ROWS
+from matrix import PANEL_COLS, PANEL_ROWS, _emoji_image, _font
 
 MEDIA_DIR = Path(__file__).resolve().parent / "media"
 CURRENT_FILE = MEDIA_DIR / "current"  # extension added on save
@@ -84,6 +84,97 @@ def load_current():
         except (OSError, ValueError):
             return None
     return None
+
+
+# ---- dumpster fire mode ----------------------------------------------
+
+FIRE_FRAME_COUNT = 28
+FIRE_FRAME_SECONDS = 0.09
+# Heat 0..1 → color ramp: black → deep red → orange → yellow → near-white.
+_FIRE_RAMP = [
+    (0.00, (0, 0, 0)),
+    (0.25, (90, 4, 0)),
+    (0.50, (200, 48, 0)),
+    (0.75, (255, 140, 10)),
+    (0.90, (255, 210, 60)),
+    (1.00, (255, 250, 200)),
+]
+_fire_frames_cache = None
+
+
+def _heat_color(t):
+    for (t0, c0), (t1, c1) in zip(_FIRE_RAMP, _FIRE_RAMP[1:]):
+        if t <= t1:
+            f = (t - t0) / (t1 - t0)
+            return tuple(int(a + (b - a) * f) for a, b in zip(c0, c1))
+    return _FIRE_RAMP[-1][1]
+
+
+def _fire_text_layer():
+    """THIS IS FINE (plus the dog, when an emoji font exists) on
+    transparent RGBA, composited over every flame frame."""
+    from PIL import ImageDraw
+
+    layer = Image.new("RGBA", (PANEL_COLS, PANEL_ROWS), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    font = _font(10)
+    for text, y in (("THIS IS", 3), ("FINE.", 15)):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        x = (PANEL_COLS - (bbox[2] - bbox[0])) // 2 - bbox[0]
+        draw.text(
+            (x, y), text, font=font, fill=(255, 255, 255, 255),
+            stroke_width=1, stroke_fill=(0, 0, 0, 255),
+        )
+    dog = _emoji_image("\U0001F436", 11)  # 🐶 — sits calmly in the flames
+    if dog is not None:
+        layer.paste(dog, (2, 2), dog)
+    return layer
+
+
+def dumpster_fire_frames():
+    """Looping procedural-flame frames for dumpster fire mode.
+
+    Classic heat-diffusion fire: hidden hot rows below the panel feed
+    randomized heat that rises and cools. Deterministic seed, generated
+    once and cached.
+    """
+    global _fire_frames_cache
+    if _fire_frames_cache is not None:
+        return _fire_frames_cache
+
+    rng = random.Random(20260707)
+    width, height = PANEL_COLS, PANEL_ROWS
+    rows = height + 3  # 3 hidden feeder rows below the visible panel
+    heat = [[0.0] * width for _ in range(rows)]
+    text = _fire_text_layer()
+    frames = []
+    warmup = 40
+    for step in range(warmup + FIRE_FRAME_COUNT):
+        for x in range(width):  # stoke the feeder rows
+            heat[rows - 1][x] = rng.uniform(0.55, 1.0)
+            heat[rows - 2][x] = rng.uniform(0.45, 0.95)
+        for y in range(rows - 2):
+            below = heat[y + 1]
+            for x in range(width):
+                total = (
+                    below[max(x - 1, 0)]
+                    + below[x]
+                    + below[min(x + 1, width - 1)]
+                    + heat[min(y + 2, rows - 1)][x]
+                )
+                heat[y][x] = max(0.0, total / 4 - rng.uniform(0.02, 0.11))
+        if step < warmup:
+            continue
+        image = Image.new("RGB", (width, height))
+        pixels = image.load()
+        for y in range(height):
+            for x in range(width):
+                pixels[x, y] = _heat_color(min(heat[y][x], 1.0))
+        image.paste(text, (0, 0), text)
+        frames.append((image, FIRE_FRAME_SECONDS))
+
+    _fire_frames_cache = frames
+    return frames
 
 
 def _get_json(url):

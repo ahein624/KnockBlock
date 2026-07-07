@@ -41,6 +41,9 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
   rules, so the hold TTL and timer chips keep a joke from becoming your
   all-day status. For reliable fetches, put a personal key in `auth.json`:
   `{"giphy_key": "..."}` — it's tried before the demo keys
+- **Dumpster fire mode** — one tap plays an original procedurally-animated
+  "THIS IS FINE." flame scene (no meme copyright, works offline); also at
+  `/api/set/dumpster_fire` for a Stream Deck panic button
 - **Priority arbiter** — when several sources are active at once:
   manual hold → on-call → focus → calendar → idle. Manual presses release
   after a configurable TTL (default 2h) so a tapped button can't suppress
@@ -106,7 +109,7 @@ or `?token=<token>`:
   `revert_minutes`; shows it on the panel
 - `GET|POST /api/set/<status>` — one-URL change for buttons:
   `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
-  `/api/set/auto`
+  `/api/set/dumpster_fire`, `/api/set/auto`
 - `GET /preview.png` — PNG of what the panel currently shows
 
 ## On-call laptop sensors

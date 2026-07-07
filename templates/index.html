@@ -525,6 +525,33 @@
   #gif-roll:active { transform: scale(0.88) rotate(-20deg); }
   #gif-roll.busy { animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .fire-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #7a2d00, #b3400a 55%, #e8912d);
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(230, 100, 20, 0.35);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.25s var(--spring), box-shadow 0.25s;
+  }
+  .fire-btn:active { transform: scale(0.96); }
+  .fire-btn.active {
+    outline: 3px solid #fff;
+    outline-offset: -3px;
+    box-shadow: 0 0 22px rgba(255, 140, 30, 0.6);
+  }
+  .fire-btn .fire-sub {
+    font-size: 0.72rem;
+    font-weight: 650;
+    opacity: 0.75;
+  }
   .upload-btn {
     display: flex;
     align-items: center;
@@ -707,6 +734,7 @@
         <input id="gif-query" maxlength="60" placeholder="GIF search (blank = surprise me)" autocomplete="off" enterkeyhint="go">
         <button id="gif-roll" aria-label="Random GIF">🎲</button>
       </div>
+      <button class="fire-btn" id="fire-btn">🔥 This is fine <span class="fire-sub">dumpster fire mode</span></button>
       <button class="upload-btn" id="upload-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
         Upload an image or GIF
@@ -818,7 +846,9 @@
     const PRESET_COLORS = {{ preset_colors_json | safe }};
     const MSG_COLORS = {{ msg_colors_json | safe }};
     LABELS.focus = "Focus";
+    LABELS.dumpster_fire = "This is Fine";
     PRESET_COLORS.focus = "#6366f1";
+    PRESET_COLORS.dumpster_fire = "#e8912d";
     const SOURCE_HINTS = {
       oncall: "call detected",
       calendar: "calendar",
@@ -924,6 +954,8 @@
         c.classList.toggle("sel", !!focusOn && state.focus.minutes === Number(c.dataset.min));
       });
 
+      $("fire-btn").classList.toggle("active", state.status === "dumpster_fire");
+
       // Auto / hold bar.
       const autoBtn = $("auto-btn");
       autoBtn.classList.toggle("held", !!state.held);
@@ -1001,7 +1033,9 @@
     document.addEventListener("visibilitychange", () => { if (!document.hidden) syncState(); });
     // GIFs animate on the panel; keep the phone preview roughly in sync.
     setInterval(() => {
-      if (!document.hidden && state.status === "media") refreshPreview();
+      if (!document.hidden && (state.status === "media" || state.status === "dumpster_fire")) {
+        refreshPreview();
+      }
     }, 1500);
 
     async function showMediaResponse(res) {
@@ -1033,6 +1067,16 @@
     });
     $("gif-query").addEventListener("keydown", (event) => {
       if (event.key === "Enter") $("gif-roll").click();
+    });
+
+    $("fire-btn").addEventListener("click", () => {
+      buzz();
+      state.status = "dumpster_fire";
+      state.sleeping = false;
+      state.source = "manual";
+      state.held = true;
+      renderState();
+      sendUpdate(withTimer({ status: "dumpster_fire" }));
     });
 
     $("upload-btn").addEventListener("click", () => $("upload-file").click());

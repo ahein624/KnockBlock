@@ -121,7 +121,8 @@ def _load_state():
         status = manual.get("status")
         message = _valid_message(manual.get("message"))
         until = manual.get("until")
-        ok = status in list(PRESETS) + ["clock"] or (status == "custom" and message)
+        ok = (status in list(PRESETS) + ["clock", "dumpster_fire"]
+              or (status == "custom" and message))
         if status == "media":
             media_frames = media.load_current()
             ok = media_frames is not None
@@ -302,6 +303,8 @@ def _render_current(force=False):
         signature = ("sleep",)
     elif status == "media":
         signature = ("media", media_generation)
+    elif status == "dumpster_fire":
+        signature = ("fire",)
     elif status == "custom":
         signature = ("custom", message["text"], message["color"])
     elif status == "focus":
@@ -324,6 +327,8 @@ def _render_current(force=False):
         display.render_preset(SLEEP_PRESET)
     elif signature[0] == "media":
         display.play_frames(media_frames or [])
+    elif signature[0] == "fire":
+        display.play_frames(media.dumpster_fire_frames())
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
@@ -655,7 +660,7 @@ def set_state():
                 status = "clock"
             if status == "auto":
                 state["manual"] = None  # release the hold; autodetect takes over
-            elif status == "clock" or status in PRESETS:
+            elif status in ("clock", "dumpster_fire") or status in PRESETS:
                 _set_manual(status, None, minutes)
             else:
                 return jsonify(error="unknown status"), 400
@@ -703,7 +708,7 @@ def quick_set(status):
         elif status == "focus":
             minutes = minutes or 25
             state["focus"] = {"until": time.time() + minutes * 60, "minutes": minutes}
-        elif status == "clock" or status in PRESETS:
+        elif status in ("clock", "dumpster_fire") or status in PRESETS:
             _set_manual(status, None, minutes)
         else:
             return jsonify(error="unknown status"), 400
