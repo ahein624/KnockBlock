@@ -304,7 +304,7 @@ def _render_current(force=False):
     elif status == "media":
         signature = ("media", media_generation)
     elif status == "dumpster_fire":
-        signature = ("fire",)
+        signature = ("fire", media.fire_gif_mtime())
     elif status == "custom":
         signature = ("custom", message["text"], message["color"])
     elif status == "focus":
@@ -328,7 +328,7 @@ def _render_current(force=False):
     elif signature[0] == "media":
         display.play_frames(media_frames or [])
     elif signature[0] == "fire":
-        display.play_frames(media.dumpster_fire_frames())
+        display.play_frames(media.fire_frames())
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":

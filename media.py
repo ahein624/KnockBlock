@@ -90,6 +90,7 @@ def load_current():
 
 FIRE_FRAME_COUNT = 28
 FIRE_FRAME_SECONDS = 0.09
+FIRE_GIF = MEDIA_DIR / "fire.gif"  # drop a GIF here to replace the procedural flames
 # Heat 0..1 → color ramp: black → deep red → orange → yellow → near-white.
 _FIRE_RAMP = [
     (0.00, (0, 0, 0)),
@@ -175,6 +176,34 @@ def dumpster_fire_frames():
 
     _fire_frames_cache = frames
     return frames
+
+
+_fire_gif_cache = (None, None)  # (mtime, frames)
+
+
+def fire_gif_mtime():
+    """Mtime of the custom fire GIF, or 0 if using procedural flames."""
+    try:
+        return FIRE_GIF.stat().st_mtime
+    except OSError:
+        return 0
+
+
+def fire_frames():
+    """What dumpster fire mode plays: media/fire.gif if present (the user's
+    chosen meme), else the generated procedural flames."""
+    global _fire_gif_cache
+    mtime = fire_gif_mtime()
+    if not mtime:
+        return dumpster_fire_frames()
+    cached_mtime, cached_frames = _fire_gif_cache
+    if cached_mtime != mtime:
+        try:
+            frames = frames_from_bytes(FIRE_GIF.read_bytes())
+        except (OSError, ValueError):
+            return dumpster_fire_frames()
+        _fire_gif_cache = (mtime, frames)
+    return _fire_gif_cache[1]
 
 
 def _get_json(url):
