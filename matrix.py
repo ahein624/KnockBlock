@@ -7,6 +7,7 @@ hzeller/rpi-rgb-led-matrix — see README.md.
 """
 import os
 import re
+import threading
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -265,23 +266,68 @@ class MatrixDisplay:
             )
         self.matrix = RGBMatrix(options=_build_options(brightness))
         self._last_image = None
+        # The C library isn't documented as thread-safe; every SetImage goes
+        # through this lock so the animation thread and web handlers can't
+        # write the panel simultaneously.
+        self._panel_lock = threading.Lock()
+        self._anim_stop = None
+        self._anim_thread = None
+
+    def _stop_animation(self):
+        if self._anim_stop is not None:
+            self._anim_stop.set()
+        if self._anim_thread is not None and self._anim_thread.is_alive():
+            self._anim_thread.join(timeout=2)
+        self._anim_stop = None
+        self._anim_thread = None
+
+    def _set_image(self, image):
+        with self._panel_lock:
+            self._last_image = image
+            self.matrix.SetImage(image)
 
     def render_preset(self, preset):
-        image = compose_preset(preset)
-        self._last_image = image
-        self.matrix.SetImage(image)
+        self._stop_animation()
+        self._set_image(compose_preset(preset))
+
+    def play_frames(self, frames):
+        """Loop a [(RGB image, duration_seconds), ...] sequence until the
+        next render replaces it. A single frame is just shown."""
+        self._stop_animation()
+        if not frames:
+            return
+        if len(frames) == 1:
+            self._set_image(frames[0][0])
+            return
+        stop = threading.Event()
+
+        def run():
+            while not stop.is_set():
+                for image, duration in frames:
+                    if stop.is_set():
+                        return
+                    self._set_image(image)
+                    stop.wait(duration)
+
+        self._anim_stop = stop
+        self._anim_thread = threading.Thread(target=run, daemon=True)
+        self._anim_thread.start()
 
     def set_brightness(self, value):
         # Brightness applies as pixels are written, so re-push the current
         # screen for it to take effect immediately.
-        self.matrix.brightness = value
-        if self._last_image is not None:
-            self.matrix.SetImage(self._last_image)
+        with self._panel_lock:
+            self.matrix.brightness = value
+            if self._last_image is not None:
+                self.matrix.SetImage(self._last_image)
 
     def snapshot(self):
         """Copy of what the panel currently shows, or None if it's off."""
-        return self._last_image.copy() if self._last_image is not None else None
+        with self._panel_lock:
+            return self._last_image.copy() if self._last_image is not None else None
 
     def clear(self):
-        self._last_image = None
-        self.matrix.Clear()
+        self._stop_animation()
+        with self._panel_lock:
+            self._last_image = None
+            self.matrix.Clear()

@@ -113,3 +113,10 @@ def public_host():
     require auth. Configured by hand in auth.json."""
     host = _load().get("public_host")
     return str(host).lower() if host else None
+
+
+def giphy_key():
+    """Personal Giphy API key (auth.json "giphy_key"). None means media.py
+    falls back to the public demo keys."""
+    key = _load().get("giphy_key")
+    return str(key) if key else None

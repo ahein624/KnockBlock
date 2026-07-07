@@ -1,4 +1,4 @@
-# KnockBlock
+# AH.knockblock
 
 A phone-controlled office status sign. Tap a button on your phone; the status
 instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
@@ -26,6 +26,32 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 - **Sleep schedule** — the panel goes dark during a configurable window
   (e.g. 22:00–07:00) whenever it's idle; a deliberately set status or custom
   message still shows
+- **On-a-call autodetect** — a tiny agent on your laptop watches the
+  camera/mic (macOS via OverSight, Windows via the ConsentStore registry)
+  and heartbeats the sign; a 15s watchdog clears the status if the agent
+  dies mid-call
+- **Focus timer** — 15/25/50-minute buttons; the panel shows FOCUS with a
+  live MM:SS countdown, then releases automatically
+- **Calendar** — point it at a Google Calendar secret iCal address (no
+  OAuth) and the sign shows "In a Meeting" during events, recurring ones
+  included
+- **GIFs & images** — a dice button fetches a random funny GIF (Tenor/Giphy,
+  works out of the box on public demo keys) and plays it on the panel; upload
+  any image or animated GIF from the phone. Media rides the manual-hold
+  rules, so the hold TTL and timer chips keep a joke from becoming your
+  all-day status. For reliable fetches, put a personal key in `auth.json`:
+  `{"giphy_key": "..."}` — it's tried before the demo keys
+- **Dumpster fire mode** — one tap plays an original procedurally-animated
+  "THIS IS FINE." flame scene (no meme copyright, works offline); also at
+  `/api/set/dumpster_fire` for a Stream Deck panic button
+- **Demo mode** — share `/demo` and visitors watch the real sign live
+  (state, preview, countdowns) but every write is refused with a polite
+  quip; secrets (calendar URL, location, API token) are redacted and the
+  settings sheet is hidden. Logging in normally exits demo mode
+- **Priority arbiter** — when several sources are active at once:
+  manual hold → on-call → focus → calendar → idle. Manual presses release
+  after a configurable TTL (default 2h) so a tapped button can't suppress
+  autodetect all day; the Auto button releases a hold early
 
 ## Login & security
 
@@ -67,18 +93,46 @@ Everything the UI does goes through JSON endpoints, so you can script it.
 Authenticate with `Authorization: Bearer <token>`, an `X-Api-Token` header,
 or `?token=<token>`:
 
-- `GET /api/state` — current status, brightness, message, recents, settings,
-  weather
+- `GET /api/state` — what's showing and why (`status`, `source`, `held`),
+  plus brightness, recents, focus/calendar state, settings, weather
 - `POST /api/state` — any subset of:
-  `{"status": "free" | "on_a_call" | ... | "clock"}`,
+  `{"status": "free" | "on_a_call" | ... | "clock" | "auto"}` (`auto`
+  releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
+  `{"focus_minutes": 25}` (0 cancels),
   `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
   `{"settings": {"weather_idle": true, "work_start": "08:00",
   "work_end": "18:00", "units": "f", "lat": null, "lon": null,
-  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00"}}`
-- `GET|POST /api/set/<status>` — one-URL status change; optional
-  `?minutes=N` auto-reverts to the default after N minutes
+  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00",
+  "ical_url": "https://…", "manual_ttl_minutes": 120}}`
+- `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
+  sensor; the status clears itself 15s after the last `true`
+- `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
+  optional); fetches a random GIF and plays it
+- `POST /api/upload` — multipart `file` (image or GIF) plus optional
+  `revert_minutes`; shows it on the panel
+- `GET|POST /api/set/<status>` — one-URL change for buttons:
+  `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
+  `/api/set/dumpster_fire`, `/api/set/auto`
 - `GET /preview.png` — PNG of what the panel currently shows
+
+## On-call laptop sensors
+
+Both agents heartbeat `POST /api/oncall` every 5s while the camera or mic
+is in use, so a crashed agent just times out after 15s.
+
+**macOS** — install [OverSight](https://objective-see.org/products/oversight.html),
+then in OverSight's settings set *Execute Action* to
+`agents/oversight-knockblock.sh` (copy it anywhere) and enable *pass
+arguments*. Edit the script's `SIGN_URL`/`TOKEN` lines or export
+`KNOCKBLOCK_URL`/`KNOCKBLOCK_TOKEN`.
+
+**Windows** — run `agents/knockblock-sensor.ps1` at logon (see the
+`schtasks` one-liner in the script header). It polls the same registry keys
+Windows uses for the camera/mic tray indicators.
+
+Neither agent needs the token while the laptop is on the sign's LAN, but
+set it anyway so the buttons keep working from anywhere.
 
 ## Stream Deck
 

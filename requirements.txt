@@ -1,2 +1,4 @@
 Flask
 Pillow
+icalendar
+recurring-ical-events

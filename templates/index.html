@@ -10,7 +10,7 @@
 <link rel="manifest" href="/static/manifest.json">
 <link rel="icon" href="/static/icon-192.png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-<title>KnockBlock</title>
+<title>AH.knockblock</title>
 <style>
   :root {
     color-scheme: dark;
@@ -45,15 +45,28 @@
     margin: 0 auto 16px;
   }
   .wordmark {
-    font-size: 1.45rem;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 1.25rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     margin: 0 auto 0 0;
-    background: linear-gradient(90deg, #30a46c, #3b82f6 60%, #8e4ec6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--ink);
   }
+  .wordmark .ah {
+    display: grid;
+    place-items: center;
+    padding: 4px 7px;
+    font-size: 0.95rem;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    color: #fff;
+    background: linear-gradient(135deg, #30a46c, #3b82f6 55%, #8e4ec6);
+    border-radius: 9px;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+  }
+  .wordmark .kb { opacity: 0.95; }
   .pill {
     display: flex;
     align-items: center;
@@ -102,6 +115,14 @@
   main > *:nth-child(3) { animation-delay: 0.08s; }
   main > *:nth-child(4) { animation-delay: 0.12s; }
   @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+
+  .demo-note p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+  .demo-note strong, .demo-note em { color: var(--ink); }
 
   /* ---- live sign preview ---- */
   .bezel {
@@ -200,6 +221,31 @@
     color: #fff;
     background: var(--accent);
     box-shadow: 0 2px 12px rgba(59, 130, 246, 0.45);
+  }
+
+  /* ---- auto / hold bar ---- */
+  .autobar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ink-dim);
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.25s var(--spring), color 0.2s, border-color 0.2s;
+  }
+  .autobar:active { transform: scale(0.96); }
+  .autobar.held {
+    color: var(--ink);
+    border-color: rgba(59, 130, 246, 0.55);
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.25);
   }
 
   /* ---- status grid ---- */
@@ -458,6 +504,91 @@
   .bright-row .sun { font-size: 1.05rem; }
   input[type="range"] { flex: 1; accent-color: var(--accent); }
 
+  #gif-query {
+    flex: 1;
+    min-width: 0;
+    padding: 13px 15px;
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+  }
+  #gif-query::placeholder { color: var(--ink-dim); }
+  #gif-query:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  #gif-roll {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    font-size: 1.3rem;
+    background: linear-gradient(135deg, #8e4ec6, #3b82f6);
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 4px 14px rgba(142, 78, 198, 0.4);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.3s var(--spring);
+  }
+  #gif-roll:active { transform: scale(0.88) rotate(-20deg); }
+  #gif-roll.busy { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fire-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #7a2d00, #b3400a 55%, #e8912d);
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(230, 100, 20, 0.35);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.25s var(--spring), box-shadow 0.25s;
+  }
+  .fire-btn:active { transform: scale(0.96); }
+  .fire-btn.active {
+    outline: 3px solid #fff;
+    outline-offset: -3px;
+    box-shadow: 0 0 22px rgba(255, 140, 30, 0.6);
+  }
+  .fire-btn .fire-sub {
+    font-size: 0.72rem;
+    font-weight: 650;
+    opacity: 0.75;
+  }
+  .upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px dashed rgba(255, 255, 255, 0.22);
+    border-radius: 14px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.25s var(--spring);
+  }
+  .upload-btn:active { transform: scale(0.96); }
+
+  .text-input {
+    width: 100%;
+    padding: 11px 13px;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid var(--stroke);
+    border-radius: 12px;
+  }
+  .text-input::placeholder { color: var(--ink-dim); }
+  .text-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
   .token-row { display: flex; align-items: center; gap: 8px; }
   .token-row code {
     flex: 1;
@@ -535,13 +666,27 @@
 </head>
 <body>
   <header>
-    <h1 class="wordmark">KnockBlock</h1>
+    <h1 class="wordmark"><span class="ah">AH.</span><span class="kb">knockblock</span></h1>
     <div class="pill" id="pill"><span class="dot"></span><span class="txt"></span></div>
-    <button class="icon-btn" id="gear" aria-label="Settings">
+    {% if not demo %}<button class="icon-btn" id="gear" aria-label="Settings">{% else %}<button class="icon-btn" id="gear" aria-label="Settings" hidden>{% endif %}
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
   </header>
   <main>
+    {% if demo %}
+    <section class="card demo-note">
+      <h2>Demo mode</h2>
+      <p>
+        This is <strong>AH.knockblock</strong>: a Raspberry Pi driving a
+        64×32 LED sign outside Andrew's office, built because shouting
+        “I'm on a call!” through a closed door kept getting mixed reviews.
+        It reads his camera, calendar, focus timers, and Stream Deck, then
+        broadcasts his availability in glorious pixels — occasionally via
+        the This-Is-Fine dog. You're watching the <em>real sign, live</em>.
+        Tap anything you like; the hardware answers only to Andrew.
+      </p>
+    </section>
+    {% endif %}
     <section class="bezel">
       <div class="screen">
         <img id="preview" src="/preview.png" alt="Live view of the sign">
@@ -558,6 +703,20 @@
         <button class="chip" data-min="60">1h</button>
       </div>
     </section>
+
+    <section class="timer-row">
+      <span class="lbl">Focus</span>
+      <div class="seg" id="focus-chips">
+        <button class="chip" data-min="15">15m</button>
+        <button class="chip" data-min="25">25m</button>
+        <button class="chip" data-min="50">50m</button>
+      </div>
+    </section>
+
+    <button class="autobar" id="auto-btn">
+      <span class="emoji" id="auto-emoji">✨</span>
+      <span id="auto-label">Auto</span>
+    </button>
 
     <section class="grid" id="grid">
       {% for key, preset in presets.items() %}
@@ -589,6 +748,22 @@
         {% endfor %}
       </div>
       <div class="recents" id="recents"></div>
+    </section>
+
+    <section class="card">
+      <h2>GIFs &amp; images</h2>
+      <div class="compose-row">
+        <input id="gif-query" maxlength="60" placeholder="GIF search (blank = surprise me)" autocomplete="off" enterkeyhint="go">
+        <button id="gif-roll" aria-label="Random GIF">🎲</button>
+      </div>
+      <button class="fire-btn" id="fire-btn">🔥 This is fine <span class="fire-sub">dumpster fire mode</span></button>
+      <button class="upload-btn" id="upload-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+        Upload an image or GIF
+      </button>
+      <input type="file" id="upload-file" accept="image/*" hidden>
+      <p class="hint">Shows on the panel as a manual hold — the Timer chips
+        and hold TTL apply, and Auto clears it.</p>
     </section>
   </main>
 
@@ -645,6 +820,31 @@
     </div>
 
     <div class="group">
+      <h3>Calendar</h3>
+      <input id="ical-url" type="url" class="text-input" placeholder="Secret iCal address" autocomplete="off">
+      <p class="hint" id="ical-hint">
+        Shows “In a Meeting” during calendar events. Google Calendar →
+        Settings → your calendar → “Secret address in iCal format”.
+        Leave empty to disable.
+      </p>
+    </div>
+
+    <div class="group">
+      <h3>Manual hold</h3>
+      <div class="seg" id="ttl-chips">
+        <button class="chip" data-ttl="60">1h</button>
+        <button class="chip" data-ttl="120">2h</button>
+        <button class="chip" data-ttl="240">4h</button>
+        <button class="chip" data-ttl="0">∞</button>
+      </div>
+      <p class="hint">
+        A tapped status releases back to Auto after this long, so a manual
+        press can’t suppress call &amp; calendar detection all day. The Timer
+        chips override this per press.
+      </p>
+    </div>
+
+    <div class="group">
       <h3>Stream Deck &amp; API</h3>
       <div class="token-row">
         <code id="token">{{ api_token }}</code>
@@ -667,6 +867,15 @@
     const LABELS = {{ labels_json | safe }};
     const PRESET_COLORS = {{ preset_colors_json | safe }};
     const MSG_COLORS = {{ msg_colors_json | safe }};
+    LABELS.focus = "Focus";
+    LABELS.dumpster_fire = "This is Fine";
+    PRESET_COLORS.focus = "#6366f1";
+    PRESET_COLORS.dumpster_fire = "#e8912d";
+    const DEMO = {{ 'true' if demo else 'false' }};
+    const SOURCE_HINTS = {
+      oncall: "call detected",
+      calendar: "calendar",
+    };
     let state = {{ state | tojson }};
     let timerMinutes = 0;
     let brightDragging = false;
@@ -720,6 +929,10 @@
         label = "Sleeping";
         dotColor = "#666";
       }
+      else if (state.status === "media") {
+        label = state.media ? state.media.label : "GIF";
+        dotColor = "#d6409f";
+      }
       else if (state.status === "clock") {
         label = state.weather ? "Clock · " + state.weather.temp + "°" : "Clock";
         dotColor = "#60a5fa";
@@ -733,6 +946,9 @@
       } else {
         label = LABELS[state.status] || state.status;
         dotColor = PRESET_COLORS[state.status] || "#666";
+      }
+      if (SOURCE_HINTS[state.source] && !state.sleeping) {
+        label += " · " + SOURCE_HINTS[state.source];
       }
       pill.querySelector(".txt").textContent = label;
       pill.style.setProperty("--dot", dotColor);
@@ -753,6 +969,33 @@
       document.querySelectorAll("#grid button.status").forEach((b) => {
         b.classList.toggle("active", b.dataset.key === state.status);
       });
+
+      // Focus chips: highlight the running timer (even while a call
+      // temporarily outranks it on the panel). Tapping it again cancels.
+      const focusOn = state.focus && state.focus.until > Date.now() / 1000;
+      document.querySelectorAll("#focus-chips .chip").forEach((c) => {
+        c.classList.toggle("sel", !!focusOn && state.focus.minutes === Number(c.dataset.min));
+      });
+
+      $("fire-btn").classList.toggle("active", state.status === "dumpster_fire");
+
+      // Auto / hold bar.
+      const autoBtn = $("auto-btn");
+      autoBtn.classList.toggle("held", !!state.held);
+      $("auto-emoji").textContent = state.held ? "✋" : "✨";
+      $("auto-label").textContent = state.held
+        ? "On hold — tap to go Auto"
+        : "Auto · calls, focus & calendar";
+
+      document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
+        c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
+
+      const ical = $("ical-url");
+      if (document.activeElement !== ical) ical.value = settings.ical_url || "";
+      if (state.calendar && !state.calendar.supported) {
+        $("ical-hint").textContent =
+          "Calendar support needs the icalendar + recurring-ical-events packages on the Pi.";
+      }
 
       const bright = $("bright");
       if (!brightDragging) bright.value = state.brightness;
@@ -811,6 +1054,71 @@
     }
     setInterval(() => { if (!document.hidden) syncState(); }, 5000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) syncState(); });
+    // GIFs animate on the panel; keep the phone preview roughly in sync.
+    setInterval(() => {
+      if (!document.hidden && (state.status === "media" || state.status === "dumpster_fire")) {
+        refreshPreview();
+      }
+    }, 1500);
+
+    async function showMediaResponse(res) {
+      if (res.status === 401) { location.href = "/login"; return; }
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Request failed");
+      state = body;
+      renderState();
+      refreshPreview();
+    }
+
+    $("gif-roll").addEventListener("click", async () => {
+      buzz();
+      const btn = $("gif-roll");
+      if (btn.classList.contains("busy")) return;
+      btn.classList.add("busy");
+      try {
+        const res = await fetch("/api/gif", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(withTimer({ query: $("gif-query").value.trim() })),
+        });
+        await showMediaResponse(res);
+      } catch (err) {
+        showToast(err.message || "Couldn't fetch a GIF", true);
+      } finally {
+        btn.classList.remove("busy");
+      }
+    });
+    $("gif-query").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") $("gif-roll").click();
+    });
+
+    $("fire-btn").addEventListener("click", () => {
+      buzz();
+      state.status = "dumpster_fire";
+      state.sleeping = false;
+      state.source = "manual";
+      state.held = true;
+      renderState();
+      sendUpdate(withTimer({ status: "dumpster_fire" }));
+    });
+
+    $("upload-btn").addEventListener("click", () => $("upload-file").click());
+    $("upload-file").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      event.target.value = "";
+      if (!file) return;
+      buzz();
+      const form = new FormData();
+      form.append("file", file);
+      const timed = withTimer({});
+      if (timed.revert_minutes) form.append("revert_minutes", timed.revert_minutes);
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        await showMediaResponse(res);
+      } catch (err) {
+        showToast(err.message || "Upload failed", true);
+      }
+    });
 
     /* ---- settings sheet ---- */
     const sheet = $("sheet");
@@ -838,6 +1146,33 @@
         c.classList.toggle("sel", c === chip));
     });
 
+    $("focus-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      const minutes = Number(chip.dataset.min);
+      const active = state.focus && state.focus.minutes === minutes &&
+        state.focus.until > Date.now() / 1000;
+      sendUpdate({ focus_minutes: active ? 0 : minutes });
+    });
+
+    $("auto-btn").addEventListener("click", () => {
+      if (!state.held) return;
+      buzz();
+      sendUpdate({ status: "auto" });
+    });
+
+    $("ttl-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      sendUpdate({ settings: { manual_ttl_minutes: Number(chip.dataset.ttl) } });
+    });
+
+    $("ical-url").addEventListener("change", (event) => {
+      sendUpdate({ settings: { ical_url: event.target.value.trim() || null } });
+    });
+
     function withTimer(partial) {
       if (timerMinutes > 0) {
         partial.revert_minutes = timerMinutes;
@@ -855,6 +1190,8 @@
       // Optimistic: reflect the tap instantly, reconcile with the response.
       state.status = button.dataset.key;
       state.sleeping = false;
+      state.source = "manual";
+      state.held = true;
       renderState();
       sendUpdate(withTimer({ status: button.dataset.key }));
     });

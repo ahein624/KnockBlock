@@ -43,6 +43,16 @@ PRESETS = {
 
 DEFAULT_PRESET = "free"
 
+# Shown while a focus timer runs; matrix.py appends the MM:SS countdown line.
+# Not in PRESETS: it can't be picked directly, only via a focus timer.
+FOCUS_STATUS = {
+    "label": "Focus",
+    "emoji": "\U0001F3AF",  # 🎯
+    "bg_color": (0, 45, 110),
+    "text_color": (255, 255, 255),
+    "ui_color": "#6366f1",
+}
+
 # Background colors selectable for custom messages. `led` is what the panel
 # shows; `ui` is the matching swatch color in the phone UI.
 MESSAGE_COLORS = {
