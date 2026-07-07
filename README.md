@@ -44,6 +44,10 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 - **Dumpster fire mode** — one tap plays an original procedurally-animated
   "THIS IS FINE." flame scene (no meme copyright, works offline); also at
   `/api/set/dumpster_fire` for a Stream Deck panic button
+- **Demo mode** — share `/demo` and visitors watch the real sign live
+  (state, preview, countdowns) but every write is refused with a polite
+  quip; secrets (calendar URL, location, API token) are redacted and the
+  settings sheet is hidden. Logging in normally exits demo mode
 - **Priority arbiter** — when several sources are active at once:
   manual hold → on-call → focus → calendar → idle. Manual presses release
   after a configurable TTL (default 2h) so a tapped button can't suppress

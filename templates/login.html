@@ -96,6 +96,14 @@
     color: #f26d75;
   }
   .setup { font-size: 0.9rem; color: var(--ink-dim); line-height: 1.5; margin: 0; }
+  .demo-link {
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  .demo-link:active { color: var(--ink); }
   pre {
     margin: 0;
     padding: 12px;
@@ -122,6 +130,7 @@
       {% if error %}<p class="error">{{ error }}</p>{% endif %}
     </form>
     {% endif %}
+    <a class="demo-link" href="/demo">Just browsing? Watch the live demo →</a>
   </div>
 </body>
 </html>

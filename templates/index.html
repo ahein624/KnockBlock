@@ -116,6 +116,14 @@
   main > *:nth-child(4) { animation-delay: 0.12s; }
   @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
 
+  .demo-note p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+  .demo-note strong, .demo-note em { color: var(--ink); }
+
   /* ---- live sign preview ---- */
   .bezel {
     position: relative;
@@ -660,11 +668,25 @@
   <header>
     <h1 class="wordmark"><span class="ah">AH.</span><span class="kb">knockblock</span></h1>
     <div class="pill" id="pill"><span class="dot"></span><span class="txt"></span></div>
-    <button class="icon-btn" id="gear" aria-label="Settings">
+    {% if not demo %}<button class="icon-btn" id="gear" aria-label="Settings">{% else %}<button class="icon-btn" id="gear" aria-label="Settings" hidden>{% endif %}
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
   </header>
   <main>
+    {% if demo %}
+    <section class="card demo-note">
+      <h2>Demo mode</h2>
+      <p>
+        This is <strong>AH.knockblock</strong>: a Raspberry Pi driving a
+        64×32 LED sign outside Andrew's office, built because shouting
+        “I'm on a call!” through a closed door kept getting mixed reviews.
+        It reads his camera, calendar, focus timers, and Stream Deck, then
+        broadcasts his availability in glorious pixels — occasionally via
+        the This-Is-Fine dog. You're watching the <em>real sign, live</em>.
+        Tap anything you like; the hardware answers only to Andrew.
+      </p>
+    </section>
+    {% endif %}
     <section class="bezel">
       <div class="screen">
         <img id="preview" src="/preview.png" alt="Live view of the sign">
@@ -849,6 +871,7 @@
     LABELS.dumpster_fire = "This is Fine";
     PRESET_COLORS.focus = "#6366f1";
     PRESET_COLORS.dumpster_fire = "#e8912d";
+    const DEMO = {{ 'true' if demo else 'false' }};
     const SOURCE_HINTS = {
       oncall: "call detected",
       calendar: "calendar",

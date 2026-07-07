@@ -3,6 +3,7 @@ import argparse
 import getpass
 import ipaddress
 import json
+import random
 import re
 import threading
 import time
@@ -58,6 +59,14 @@ DEFAULT_SETTINGS = {
 
 # All black; what the panel shows during scheduled sleep.
 SLEEP_PRESET = {"lines": [], "bg_color": (0, 0, 0)}
+
+# What demo visitors get instead of side effects.
+DEMO_QUIPS = [
+    "Demo mode: admired, not altered.",
+    "Nice tap. The hardware respectfully declines.",
+    "The sign remains under Andrew's exclusive jurisdiction.",
+    "Look with your eyes, not with your HTTP requests.",
+]
 
 LOGIN_FREE_ATTEMPTS = 3
 LOGIN_LOCK_SECONDS = 30
@@ -394,7 +403,7 @@ def _scheduler_loop():
         time.sleep(SCHEDULER_INTERVAL)
 
 
-def _api_payload():
+def _api_payload(demo=False):
     """Assumes the caller holds the lock (arbitration mutates expired holds)."""
     now = time.time()
     source, status, message, until = _arbitrate(now)
@@ -419,7 +428,12 @@ def _api_payload():
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
-        "settings": state["settings"],
+        # Spectators don't get the secret calendar URL or the location.
+        "settings": (
+            {**state["settings"], "ical_url": None, "lat": None, "lon": None}
+            if demo
+            else state["settings"]
+        ),
         "showing_weather": _idle_clock_active(source),
         "sleeping": _sleeping(source, status),
         "weather": weather_data,
@@ -470,7 +484,7 @@ def _is_local_request():
 
 @app.before_request
 def _require_auth():
-    if request.path == "/login" or request.path.startswith("/static/"):
+    if request.path in ("/login", "/demo") or request.path.startswith("/static/"):
         return None
     if _is_local_request():
         return None
@@ -479,9 +493,34 @@ def _require_auth():
     token = _request_token()
     if token and auth.check_token(token):
         return None
+    if session.get("demo"):
+        # Spectators: live reads only. Everything mutating — including the
+        # GET-able /api/set/* — earns a quip.
+        if request.method == "GET" and request.path in ("/", "/api/state", "/preview.png"):
+            return None
+        if request.path.startswith("/api/"):
+            return jsonify(error=random.choice(DEMO_QUIPS)), 403
+        return redirect("/")
     if request.path.startswith("/api/") or request.path == "/preview.png":
         return jsonify(error="unauthorized"), 401
     return redirect("/login")
+
+
+def _demo_active():
+    """True when this request is a spectator: has the demo cookie and no
+    real credentials (locals, sessions, and tokens outrank demo)."""
+    if not session.get("demo") or session.get("authed"):
+        return False
+    if _is_local_request():
+        return False
+    token = _request_token()
+    return not (token and auth.check_token(token))
+
+
+@app.route("/demo")
+def demo():
+    session["demo"] = True
+    return redirect("/")
 
 
 def _login_wait(ip):
@@ -508,6 +547,7 @@ def login():
         elif auth.check_password(request.form.get("password", "")):
             login_attempts.pop(ip, None)
             session.permanent = True
+            session.pop("demo", None)
             session["authed"] = True
             return redirect("/")
         else:
@@ -536,13 +576,15 @@ def api_token():
 
 @app.route("/")
 def index():
+    demo = _demo_active()
     with lock:
-        payload = _api_payload()
+        payload = _api_payload(demo=demo)
     return render_template(
         "index.html",
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
-        api_token=auth.api_token(),
+        demo=demo,
+        api_token="" if demo else auth.api_token(),
         state=payload,
         labels_json=json.dumps({key: preset["label"] for key, preset in PRESETS.items()}),
         preset_colors_json=json.dumps(
@@ -572,7 +614,7 @@ def preview():
 @app.route("/api/state")
 def get_state():
     with lock:
-        return jsonify(_api_payload())
+        return jsonify(_api_payload(demo=_demo_active()))
 
 
 @app.route("/api/state", methods=["POST"])
