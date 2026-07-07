@@ -36,9 +36,11 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
   OAuth) and the sign shows "In a Meeting" during events, recurring ones
   included
 - **GIFs & images** — a dice button fetches a random funny GIF (Tenor/Giphy,
-  no API key needed) and plays it on the panel; upload any image or animated
-  GIF from the phone. Media rides the manual-hold rules, so the hold TTL and
-  timer chips keep a joke from becoming your all-day status
+  works out of the box on public demo keys) and plays it on the panel; upload
+  any image or animated GIF from the phone. Media rides the manual-hold
+  rules, so the hold TTL and timer chips keep a joke from becoming your
+  all-day status. For reliable fetches, put a personal key in `auth.json`:
+  `{"giphy_key": "..."}` — it's tried before the demo keys
 - **Priority arbiter** — when several sources are active at once:
   manual hold → on-call → focus → calendar → idle. Manual presses release
   after a configurable TTL (default 2h) so a tapped button can't suppress

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps, ImageSequence
 
+import auth
 from matrix import PANEL_COLS, PANEL_ROWS
 
 MEDIA_DIR = Path(__file__).resolve().parent / "media"
@@ -108,9 +109,9 @@ def _tenor_random(query):
     return _download(gif["url"])
 
 
-def _giphy_random(query):
+def _giphy_random(query, key=None):
     url = "https://api.giphy.com/v1/gifs/random?" + urllib.parse.urlencode(
-        {"api_key": GIPHY_KEY, "tag": query, "rating": "pg"}
+        {"api_key": key or GIPHY_KEY, "tag": query, "rating": "pg"}
     )
     images = _get_json(url)["data"]["images"]
     pick = (
@@ -124,11 +125,17 @@ def _giphy_random(query):
 def fetch_random_gif(query=None):
     """Random GIF bytes for a query (or a random funny one).
 
-    Returns (raw_bytes, query_used). Raises RuntimeError if every
-    provider fails.
+    Returns (raw_bytes, query_used). A personal Giphy key (auth.json
+    "giphy_key") is tried first; the public demo keys are fallbacks.
+    Raises RuntimeError if every provider fails.
     """
     query = (query or "").strip() or random.choice(FUNNY_QUERIES)
-    for provider in (_tenor_random, _giphy_random):
+    providers = []
+    personal = auth.giphy_key()
+    if personal:
+        providers.append(lambda q: _giphy_random(q, personal))
+    providers += [_tenor_random, _giphy_random]
+    for provider in providers:
         try:
             return provider(query), query
         except Exception:
