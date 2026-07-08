@@ -8,7 +8,7 @@ current draw.
 
 PRESETS = {
     "on_a_call": {
-        "label": "On a Call",
+        "label": "On a call",
         "emoji": "\U0001F4DE",  # 📞
         "lines": ["ON A", "CALL"],
         "bg_color": (120, 0, 0),
@@ -24,7 +24,7 @@ PRESETS = {
         "ui_color": "#30a46c",
     },
     "in_a_meeting": {
-        "label": "In a Meeting",
+        "label": "In a meeting",
         "emoji": "\U0001F465",  # 👥
         "lines": ["IN A", "MEETING"],
         "bg_color": (150, 90, 0),
@@ -32,7 +32,7 @@ PRESETS = {
         "ui_color": "#e8912d",
     },
     "do_not_disturb": {
-        "label": "Do Not Disturb",
+        "label": "Do not disturb",
         "emoji": "\U0001F6AB",  # 🚫
         "lines": ["DO NOT", "DISTURB"],
         "bg_color": (90, 0, 110),
