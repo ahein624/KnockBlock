@@ -3,150 +3,113 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0b0f">
+<meta name="theme-color" content="#191710">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/static/manifest.json">
 <link rel="icon" href="/static/icon-192.png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>AH.knockblock</title>
 <style>
+  /* AH Field System — one hi-vis orange per view (the dumpster-fire ripcord). */
   :root {
     color-scheme: dark;
-    --bg: #0a0b0f;
-    --surface: rgba(255, 255, 255, 0.05);
-    --surface-strong: rgba(255, 255, 255, 0.09);
-    --stroke: rgba(255, 255, 255, 0.08);
-    --ink: #f2f2f7;
-    --ink-dim: #8f8f9b;
-    --accent: #3b82f6;
-    --glow: #30a46c;
-    --spring: cubic-bezier(0.2, 1.1, 0.3, 1);
+    --coyote: #B3A180;
+    --coyote-deep: #8F7D5C;
+    --canvas: #191710;
+    --canvas-raised: #211E14;
+    --olive: #57543E;
+    --hivis: #FF5C1C;
+    --line: #35301F;
+    --ink: #E4DDC9;
+    --ink-soft: #9C9480;
+    --ink-faint: #6B6350;
+    --font-display: 'Barlow Semi Condensed', -apple-system, sans-serif;
+    --font-body: 'Barlow', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     min-height: 100vh;
-    padding: calc(12px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(140% 100% at 50% -20%, #161b29 0%, var(--bg) 60%) fixed;
+    padding: calc(8px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    font-family: var(--font-body);
+    background: var(--canvas);
     color: var(--ink);
   }
   body.locked { overflow: hidden; }
-  button { font-family: inherit; cursor: pointer; }
+  button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:active { opacity: 0.7; }
 
   header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     max-width: 480px;
-    margin: 0 auto 16px;
+    margin: 0 auto;
+    padding: 8px 0;
   }
   .wordmark {
     display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 1.25rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin: 0 auto 0 0;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    font: 600 24px var(--font-display);
+    letter-spacing: 0.02em;
     color: var(--ink);
   }
-  .wordmark .ah {
-    display: grid;
-    place-items: center;
-    padding: 4px 7px;
-    font-size: 0.95rem;
-    font-weight: 900;
-    letter-spacing: 0.01em;
-    color: #fff;
-    background: linear-gradient(135deg, #30a46c, #3b82f6 55%, #8e4ec6);
-    border-radius: 9px;
-    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+  .wordmark .ah { font-weight: 700; color: var(--coyote); }
+  .cfg {
+    padding: 8px;
+    font: 500 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
   }
-  .wordmark .kb { opacity: 0.95; }
-  .pill {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 13px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    font-size: 0.8rem;
-    font-weight: 650;
-    max-width: 48%;
+  .nowline {
+    max-width: 480px;
+    margin: 0 auto 16px;
+    font: 400 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .pill .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--dot, #666);
-    box-shadow: 0 0 10px var(--dot, transparent);
-    flex-shrink: 0;
-    animation: pulse 2.2s ease-in-out infinite;
-  }
-  .pill .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  @keyframes pulse { 50% { opacity: 0.45; } }
-  .icon-btn {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    color: var(--ink-dim);
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring);
-    flex-shrink: 0;
-  }
-  .icon-btn:active { transform: scale(0.88) rotate(30deg); }
 
-  main { max-width: 480px; margin: 0 auto; display: grid; gap: 14px; }
-  main > * { animation: rise 0.5s var(--spring) backwards; }
-  main > *:nth-child(2) { animation-delay: 0.04s; }
-  main > *:nth-child(3) { animation-delay: 0.08s; }
-  main > *:nth-child(4) { animation-delay: 0.12s; }
-  @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+  main { max-width: 480px; margin: 0 auto; display: grid; gap: 16px; }
 
+  .demo-note {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px;
+    display: grid;
+    gap: 8px;
+  }
   .demo-note p {
     margin: 0;
-    font-size: 0.88rem;
-    line-height: 1.55;
-    color: var(--ink-dim);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-soft);
   }
-  .demo-note strong, .demo-note em { color: var(--ink); }
+  .demo-note strong, .demo-note em { color: var(--ink); font-style: normal; }
 
-  /* ---- live sign preview ---- */
-  .bezel {
-    position: relative;
-    padding: 12px;
-    background: linear-gradient(180deg, #22242e, #121319);
-    border: 1px solid var(--stroke);
-    border-radius: 22px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 12px 34px rgba(0, 0, 0, 0.45);
-  }
-  .bezel::before {
-    content: "";
-    position: absolute;
-    inset: 10% 6% -8%;
-    background: var(--glow);
-    filter: blur(46px);
-    opacity: 0.16;
-    border-radius: 50%;
-    z-index: -1;
-    transition: background 0.6s;
+  /* ---- panel output ---- */
+  .panel-wrap {
+    margin: 0 -16px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--canvas);
   }
   .screen {
     position: relative;
-    border-radius: 10px;
     overflow: hidden;
     background: #000;
     aspect-ratio: 2 / 1;
@@ -165,232 +128,227 @@
     background-size: 1.5625% 3.125%; /* one cell per LED: 100/64 x 100/32 */
     pointer-events: none;
   }
-  .countdown {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: none;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 11px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    font-size: 0.8rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  .countdown.on { display: flex; }
 
-  /* ---- timer segmented control ---- */
-  .timer-row { display: flex; align-items: center; gap: 10px; }
-  .timer-row .lbl {
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-  }
-  .seg {
-    flex: 1;
+  /* ---- status grid ---- */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button.status {
     display: flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+    height: 88px;
+    padding: 12px;
+    text-align: left;
+    background: var(--canvas-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
   }
-  .seg .chip {
+  .status .srow {
+    display: flex;
+    justify-content: space-between;
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .status .scur { visibility: hidden; }
+  .status .slabel {
+    font: 600 19px var(--font-display);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  button.status.active {
+    background: var(--coyote);
+    border-color: var(--coyote);
+  }
+  .status.active .srow { color: #3A362A; }
+  .status.active .scur { visibility: visible; }
+  .status.active .slabel { color: var(--canvas); }
+
+  /* ---- hold / focus chip rows ---- */
+  .specrow { display: flex; align-items: center; gap: 8px; }
+  .speclbl {
+    width: 56px;
+    flex-shrink: 0;
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .chips {
     flex: 1;
-    padding: 8px 0;
-    font-size: 0.84rem;
-    font-weight: 700;
-    color: var(--ink-dim);
-    background: transparent;
-    border: none;
-    border-radius: 999px;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring), background 0.2s, color 0.2s;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
   }
-  .chip:active { transform: scale(0.92); }
+  .chip {
+    padding: 8px 0;
+    text-align: center;
+    font: 500 12px var(--font-mono);
+    color: var(--ink-soft);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
   .chip.sel {
-    color: #fff;
-    background: var(--accent);
-    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.45);
+    background: var(--coyote);
+    border-color: var(--coyote);
+    color: var(--canvas);
   }
 
   /* ---- auto / hold bar ---- */
   .autobar {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 8px;
-    padding: 12px;
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--ink-dim);
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring), color 0.2s, border-color 0.2s;
+    padding: 10px 16px;
+    background: none;
+    border: 1px solid var(--olive);
+    border-radius: 4px;
   }
-  .autobar:active { transform: scale(0.96); }
-  .autobar.held {
-    color: var(--ink);
-    border-color: rgba(59, 130, 246, 0.55);
-    box-shadow: 0 0 14px rgba(59, 130, 246, 0.25);
+  .autobar #auto-label { font: 500 13px var(--font-body); color: var(--ink); }
+  .autobar .autohint {
+    font: 400 11px var(--font-mono);
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
   }
 
-  /* ---- status grid ---- */
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  button.status {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 7px;
-    padding: 20px 10px 15px;
-    font-size: 0.98rem;
-    font-weight: 700;
-    color: #fff;
-    background: var(--c, #26262c);
-    background-image: linear-gradient(165deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 42%, rgba(0,0,0,0.22));
-    border: none;
-    border-radius: 22px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.3s var(--spring), box-shadow 0.3s;
-  }
-  button.status:active { transform: scale(0.94); }
-  button.status .emoji { font-size: 2.1rem; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
-  button.status.active {
-    outline: 3px solid #fff;
-    outline-offset: -3px;
-    box-shadow: 0 0 22px var(--c, rgba(255,255,255,0.3)), inset 0 1px 0 rgba(255,255,255,0.25);
-  }
-  button.status.active::before {
-    content: "LIVE";
-    position: absolute;
-    top: 9px;
-    right: 11px;
-    font-size: 0.58rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.92);
-    color: #111;
-  }
-  button.status.off {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    padding: 14px;
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    box-shadow: none;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  button.status.off .emoji { font-size: 1.35rem; }
-
-  /* ---- message composer ---- */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--stroke);
-    border-radius: 22px;
-    padding: 16px;
-    display: grid;
-    gap: 12px;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  .card h2 {
+  /* ---- fieldset sections ---- */
+  .fieldset { display: grid; gap: 8px; }
+  .fieldset h2 {
     margin: 0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
   }
-  .compose-row { display: flex; gap: 10px; align-items: center; }
-  #msg-text {
+  .compose-row { display: flex; gap: 8px; align-items: stretch; }
+  .field-input {
     flex: 1;
     min-width: 0;
-    padding: 13px 15px;
-    font-size: 1rem;
+    padding: 10px 12px;
+    font: 400 16px var(--font-body);
     color: var(--ink);
-    background: rgba(0, 0, 0, 0.32);
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
+    background: var(--canvas-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
   }
-  #msg-text::placeholder { color: var(--ink-dim); }
-  #msg-text:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  #msg-send {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
+  .field-input::placeholder { color: var(--ink-faint); }
+  .field-input:focus { outline: 1px solid var(--coyote); outline-offset: -1px; }
+  .field-btn {
     flex-shrink: 0;
-    color: #fff;
-    background: var(--accent);
-    border: none;
-    border-radius: 50%;
-    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.3s var(--spring);
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    font: 600 13px var(--font-display);
+    letter-spacing: 0.04em;
+    background: none;
+    border-radius: 4px;
   }
-  #msg-send:active { transform: scale(0.88); }
-  .swatches { display: flex; gap: 12px; padding: 0 4px; }
+  #msg-send { border: 1px solid var(--coyote); color: var(--coyote); }
+  #gif-roll { border: 1px solid var(--olive); color: var(--coyote); }
+  #gif-roll.busy { opacity: 0.5; }
+
+  .inkrow { display: flex; align-items: center; gap: 8px; }
+  .inkrow .lbl {
+    font: 400 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin-right: 8px;
+  }
+  .swatch { padding: 4px; }
   .swatch input { display: none; }
   .swatch span {
     display: block;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
     background: var(--c);
-    border: 3px solid transparent;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
-    transition: transform 0.3s var(--spring), border-color 0.15s;
   }
-  .swatch input:checked + span { border-color: #fff; transform: scale(1.15); }
+  .swatch input:checked + span { outline: 1px solid var(--ink); outline-offset: 2px; }
+
   .recents { display: flex; flex-wrap: wrap; gap: 8px; }
   .recents:empty { display: none; }
   .recent {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 9px 14px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--ink);
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
+    gap: 8px;
+    padding: 6px 10px;
+    font: 400 11px var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--canvas-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
     max-width: 100%;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring);
   }
-  .recent:active { transform: scale(0.94); }
-  .recent .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .recent .dot { width: 8px; height: 8px; border-radius: 1px; flex-shrink: 0; }
   .recent .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---- the ripcord ---- */
+  .fire-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--hivis);
+    border: none;
+    border-radius: 4px;
+    color: var(--canvas);
+  }
+  .fire-btn .fire-name { font: 600 16px var(--font-display); letter-spacing: 0.02em; }
+  .fire-btn .fire-sub { font: 500 11px var(--font-mono); letter-spacing: 0.06em; }
+  .fire-btn.active { outline: 1px solid var(--ink); outline-offset: 2px; }
+
+  .upload-btn {
+    padding: 12px 16px;
+    text-align: center;
+    font: 400 12px var(--font-mono);
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    background: none;
+    border: 1px dashed var(--olive);
+    border-radius: 4px;
+  }
+  .note {
+    margin: 0;
+    font: 400 11px/1.6 var(--font-mono);
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+  }
+
+  /* ---- footer ---- */
+  .footbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .footclock {
+    padding: 8px 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    text-align: left;
+  }
+  .footclock.active { color: var(--coyote); }
 
   /* ---- settings sheet ---- */
   .sheet-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s;
+    transition: opacity 0.2s;
     z-index: 40;
   }
   .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
@@ -403,15 +361,12 @@
     max-height: 86vh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
-    background: rgba(24, 26, 34, 0.92);
-    border: 1px solid var(--stroke);
+    padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
+    background: var(--canvas-raised);
+    border: 1px solid var(--line);
     border-bottom: none;
-    border-radius: 26px 26px 0 0;
-    backdrop-filter: blur(28px) saturate(1.4);
-    -webkit-backdrop-filter: blur(28px) saturate(1.4);
-    box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.5);
-    transition: transform 0.45s var(--spring);
+    border-radius: 4px 4px 0 0;
+    transition: transform 0.25s ease;
     z-index: 50;
     display: grid;
     /* minmax(0, …) so the column can shrink below the nowrap token string */
@@ -421,19 +376,23 @@
   .sheet.open { transform: translate(-50%, 0); }
   .grabber {
     width: 40px;
-    height: 5px;
-    margin: 2px auto 0;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.22);
+    height: 4px;
+    margin: 4px auto 0;
+    border-radius: 2px;
+    background: var(--olive);
   }
-  .sheet h2 { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
+  .sheet h2 {
+    margin: 0;
+    font: 600 18px var(--font-display);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
   .sheet h3 {
     margin: 4px 0 0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.09em;
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-faint);
   }
   /* min-width: 0 lets grid/flex children shrink below their content width —
      otherwise the nowrap token string forces the whole sheet wider. */
@@ -441,25 +400,25 @@
   .sheet .group {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
   }
+  .sheet .chips { grid-template-columns: repeat(4, 1fr); }
 
   .setting-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    font-size: 0.92rem;
-    font-weight: 600;
+    gap: 8px;
+    font: 500 15px var(--font-body);
   }
-  .switch { position: relative; width: 48px; height: 28px; flex-shrink: 0; }
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
   .switch input { display: none; }
   .switch .track {
     position: absolute;
     inset: 0;
-    border-radius: 999px;
-    background: #33343c;
+    border-radius: 4px;
+    background: var(--line);
     transition: background 0.15s;
   }
   .switch .track::after {
@@ -467,167 +426,97 @@
     position: absolute;
     top: 3px;
     left: 3px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-    transition: transform 0.3s var(--spring);
+    width: 18px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--ink-soft);
+    transition: transform 0.15s, background 0.15s;
   }
-  .switch input:checked + .track { background: var(--accent); }
-  .switch input:checked + .track::after { transform: translateX(20px); }
+  .switch input:checked + .track { background: var(--coyote); }
+  .switch input:checked + .track::after { transform: translateX(20px); background: var(--canvas); }
+
   .hours-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .hours-row .sep { color: var(--ink-dim); font-size: 0.85rem; }
+  .hours-row .sep {
+    font: 400 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
   .hours-row input[type="time"] {
     padding: 8px 10px;
-    font-size: 0.9rem;
-    font-weight: 600;
+    font: 500 14px var(--font-body);
     color: var(--ink);
-    background: rgba(0, 0, 0, 0.32);
-    border: 1px solid var(--stroke);
-    border-radius: 10px;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    border-radius: 4px;
     color-scheme: dark;
   }
-  .units { display: flex; margin-left: auto; border: 1px solid var(--stroke); border-radius: 10px; overflow: hidden; }
+  .units { display: flex; margin-left: auto; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .units button {
-    padding: 8px 13px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--ink-dim);
-    background: rgba(0, 0, 0, 0.32);
+    padding: 8px 12px;
+    font: 500 12px var(--font-mono);
+    color: var(--ink-soft);
+    background: var(--canvas);
     border: none;
-    -webkit-tap-highlight-color: transparent;
   }
-  .units button.sel { color: #fff; background: var(--accent); }
+  .units button.sel { color: var(--canvas); background: var(--coyote); }
 
-  .bright-row { display: flex; align-items: center; gap: 12px; }
-  .bright-row .sun { font-size: 1.05rem; }
-  input[type="range"] { flex: 1; accent-color: var(--accent); }
-
-  #gif-query {
-    flex: 1;
-    min-width: 0;
-    padding: 13px 15px;
-    font-size: 0.95rem;
-    color: var(--ink);
-    background: rgba(0, 0, 0, 0.32);
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
+  .bright-row { display: flex; align-items: center; gap: 8px; }
+  .bright-row .end {
+    font: 400 10px var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
   }
-  #gif-query::placeholder { color: var(--ink-dim); }
-  #gif-query:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  #gif-roll {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    font-size: 1.3rem;
-    background: linear-gradient(135deg, #8e4ec6, #3b82f6);
-    border: none;
-    border-radius: 50%;
-    box-shadow: 0 4px 14px rgba(142, 78, 198, 0.4);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.3s var(--spring);
-  }
-  #gif-roll:active { transform: scale(0.88) rotate(-20deg); }
-  #gif-roll.busy { animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .fire-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #fff;
-    background: linear-gradient(135deg, #7a2d00, #b3400a 55%, #e8912d);
-    border: none;
-    border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(230, 100, 20, 0.35);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring), box-shadow 0.25s;
-  }
-  .fire-btn:active { transform: scale(0.96); }
-  .fire-btn.active {
-    outline: 3px solid #fff;
-    outline-offset: -3px;
-    box-shadow: 0 0 22px rgba(255, 140, 30, 0.6);
-  }
-  .fire-btn .fire-sub {
-    font-size: 0.72rem;
-    font-weight: 650;
-    opacity: 0.75;
-  }
-  .upload-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--ink);
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px dashed rgba(255, 255, 255, 0.22);
-    border-radius: 14px;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring);
-  }
-  .upload-btn:active { transform: scale(0.96); }
+  input[type="range"] { flex: 1; accent-color: var(--coyote); }
 
   .text-input {
     width: 100%;
-    padding: 11px 13px;
-    font-size: 0.9rem;
+    padding: 10px 12px;
+    font: 400 16px var(--font-body);
     color: var(--ink);
-    background: rgba(0, 0, 0, 0.32);
-    border: 1px solid var(--stroke);
-    border-radius: 12px;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    border-radius: 4px;
   }
-  .text-input::placeholder { color: var(--ink-dim); }
-  .text-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .text-input::placeholder { color: var(--ink-faint); }
+  .text-input:focus { outline: 1px solid var(--coyote); outline-offset: -1px; }
 
   .token-row { display: flex; align-items: center; gap: 8px; }
   .token-row code {
     flex: 1;
     min-width: 0;
     padding: 10px 12px;
-    font-size: 0.82rem;
-    background: rgba(0, 0, 0, 0.32);
-    border: 1px solid var(--stroke);
-    border-radius: 10px;
+    font: 400 12px var(--font-mono);
+    color: var(--ink-soft);
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    border-radius: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .token-btn {
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--ink);
-    background: var(--surface-strong);
-    border: 1px solid var(--stroke);
-    border-radius: 10px;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.25s var(--spring);
+    padding: 10px 12px;
+    font: 500 12px var(--font-mono);
+    letter-spacing: 0.04em;
+    color: var(--coyote);
+    background: none;
+    border: 1px solid var(--olive);
+    border-radius: 4px;
     flex-shrink: 0;
   }
-  .token-btn:active { transform: scale(0.93); }
-  .hint { margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--ink-dim); }
-  .hint code { font-size: 0.75rem; word-break: break-all; }
+  .hint { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-faint); }
+  .hint code { font-family: var(--font-mono); font-size: 11px; word-break: break-all; }
 
   .logout {
     display: block;
-    padding: 13px;
+    padding: 12px;
     text-align: center;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #f26d75;
-    background: rgba(229, 72, 77, 0.1);
-    border: 1px solid rgba(229, 72, 77, 0.25);
-    border-radius: 14px;
+    font: 500 12px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    border: 1px solid var(--olive);
+    border-radius: 4px;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -635,29 +524,30 @@
   #toast {
     position: fixed;
     left: 50%;
-    bottom: calc(26px + env(safe-area-inset-bottom));
-    transform: translateX(-50%) translateY(8px);
-    padding: 11px 20px;
-    background: rgba(38, 38, 44, 0.92);
-    border: 1px solid var(--stroke);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    color: #fff;
-    font-weight: 650;
-    font-size: 0.9rem;
-    border-radius: 999px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    background: var(--canvas-raised);
+    border: 1px solid var(--olive);
+    color: var(--ink);
+    font: 500 14px var(--font-body);
+    border-radius: 4px;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.22s, transform 0.3s var(--spring);
+    transition: opacity 0.2s;
     max-width: 85%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     z-index: 60;
   }
-  #toast.err { background: rgba(160, 48, 54, 0.94); border-color: #c2454c; }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err::before {
+    content: "ERR · ";
+    font: 500 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--coyote);
+  }
+  #toast.show { opacity: 1; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -666,16 +556,14 @@
 </head>
 <body>
   <header>
-    <h1 class="wordmark"><span class="ah">AH.</span><span class="kb">knockblock</span></h1>
-    <div class="pill" id="pill"><span class="dot"></span><span class="txt"></span></div>
-    {% if not demo %}<button class="icon-btn" id="gear" aria-label="Settings">{% else %}<button class="icon-btn" id="gear" aria-label="Settings" hidden>{% endif %}
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    <h1 class="wordmark"><span class="ah">AH.</span><span>KNOCKBLOCK</span></h1>
+    {% if not demo %}<button class="cfg" id="gear" aria-label="Settings">CFG</button>{% endif %}
   </header>
+  <div class="nowline">NOW SHOWING: <span id="now-txt"></span><span id="hold-txt"></span><span id="countdown"></span></div>
   <main>
     {% if demo %}
-    <section class="card demo-note">
-      <h2>Demo mode</h2>
+    <section class="demo-note">
+      <h2 class="note">DEMO MODE</h2>
       <p>
         This is <strong>AH.knockblock</strong>: a Raspberry Pi driving a
         64×32 LED sign outside Andrew's office, built because shouting
@@ -687,59 +575,53 @@
       </p>
     </section>
     {% endif %}
-    <section class="bezel">
+    <section class="panel-wrap">
       <div class="screen">
         <img id="preview" src="/preview.png" alt="Live view of the sign">
       </div>
-      <div class="countdown" id="countdown">⏱ <span id="countdown-txt"></span></div>
     </section>
 
-    <section class="timer-row">
-      <span class="lbl">Timer</span>
-      <div class="seg" id="timer-chips">
+    <section class="grid" id="grid">
+      {% for key, preset in presets.items() %}
+      <button class="status" data-key="{{ key }}">
+        <span class="srow"><span>S-{{ '%02d'|format(loop.index) }}</span><span class="scur">CURRENT</span></span>
+        <span class="slabel">{{ preset.label }}</span>
+      </button>
+      {% endfor %}
+    </section>
+
+    <section class="specrow">
+      <span class="speclbl">HOLD</span>
+      <div class="chips" id="timer-chips">
         <button class="chip sel" data-min="0">∞</button>
-        <button class="chip" data-min="15">15m</button>
-        <button class="chip" data-min="30">30m</button>
-        <button class="chip" data-min="60">1h</button>
+        <button class="chip" data-min="15">15M</button>
+        <button class="chip" data-min="30">30M</button>
+        <button class="chip" data-min="60">1H</button>
       </div>
     </section>
 
-    <section class="timer-row">
-      <span class="lbl">Focus</span>
-      <div class="seg" id="focus-chips">
-        <button class="chip" data-min="15">15m</button>
-        <button class="chip" data-min="25">25m</button>
-        <button class="chip" data-min="50">50m</button>
+    <section class="specrow">
+      <span class="speclbl">FOCUS</span>
+      <div class="chips" id="focus-chips">
+        <button class="chip" data-min="15">15M</button>
+        <button class="chip" data-min="25">25M</button>
+        <button class="chip" data-min="50">50M</button>
       </div>
     </section>
 
     <button class="autobar" id="auto-btn">
-      <span class="emoji" id="auto-emoji">✨</span>
       <span id="auto-label">Auto</span>
+      <span class="autohint" id="auto-hint">CALLS · FOCUS · CALENDAR</span>
     </button>
 
-    <section class="grid" id="grid">
-      {% for key, preset in presets.items() %}
-      <button class="status" data-key="{{ key }}" style="--c: {{ preset.ui_color }};">
-        <span class="emoji">{{ preset.emoji }}</span>
-        <span>{{ preset.label }}</span>
-      </button>
-      {% endfor %}
-      <button class="status off" data-key="clock">
-        <span class="emoji">🕐</span>
-        <span>Clock &amp; Weather</span>
-      </button>
-    </section>
-
-    <section class="card">
-      <h2>Custom message</h2>
+    <section class="fieldset">
+      <h2>MESSAGE</h2>
       <div class="compose-row">
-        <input id="msg-text" maxlength="80" placeholder="🍕 Back at 1:30" autocomplete="off" enterkeyhint="send">
-        <button id="msg-send" aria-label="Show on sign">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-        </button>
+        <input id="msg-text" class="field-input" maxlength="80" placeholder="Back at 1:30" autocomplete="off" enterkeyhint="send">
+        <button id="msg-send" class="field-btn" aria-label="Show on sign">SEND</button>
       </div>
-      <div class="swatches">
+      <div class="inkrow">
+        <span class="lbl">PANEL INK</span>
         {% for name, color in message_colors.items() %}
         <label class="swatch">
           <input type="radio" name="msg-color" value="{{ name }}" {% if loop.first %}checked{% endif %}>
@@ -750,20 +632,24 @@
       <div class="recents" id="recents"></div>
     </section>
 
-    <section class="card">
-      <h2>GIFs &amp; images</h2>
+    <section class="fieldset">
+      <h2>GIFS &amp; IMAGES</h2>
       <div class="compose-row">
-        <input id="gif-query" maxlength="60" placeholder="GIF search (blank = surprise me)" autocomplete="off" enterkeyhint="go">
-        <button id="gif-roll" aria-label="Random GIF">🎲</button>
+        <input id="gif-query" class="field-input" maxlength="60" placeholder="GIF search (blank = surprise me)" autocomplete="off" enterkeyhint="go">
+        <button id="gif-roll" class="field-btn" aria-label="Random GIF">ROLL</button>
       </div>
-      <button class="fire-btn" id="fire-btn">🔥 This is fine <span class="fire-sub">dumpster fire mode</span></button>
-      <button class="upload-btn" id="upload-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
-        Upload an image or GIF
+      <button class="fire-btn" id="fire-btn">
+        <span class="fire-name">THIS IS FINE</span>
+        <span class="fire-sub">DUMPSTER FIRE MODE</span>
       </button>
+      <button class="upload-btn" id="upload-btn">UPLOAD IMAGE / GIF</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
-      <p class="hint">Shows on the panel as a manual hold — the Timer chips
-        and hold TTL apply, and Auto clears it.</p>
+      <p class="note">NOTE: SHOWS AS MANUAL HOLD. TIMER TTL APPLIES. AUTO CLEARS IT.</p>
+    </section>
+
+    <section class="footbar">
+      <button class="footclock" id="clock-btn" data-key="clock">CLOCK &amp; WEATHER <span id="clock-set">→ SET</span></button>
+      <span>RUNS FOREVER IF MAINTAINED</span>
     </section>
   </main>
 
@@ -775,16 +661,16 @@
     <div class="group">
       <h3>Brightness <span id="bright-val"></span></h3>
       <div class="bright-row">
-        <span class="sun">🔅</span>
+        <span class="end">LO</span>
         <input id="bright" type="range" min="10" max="100" step="5">
-        <span class="sun">🔆</span>
+        <span class="end">HI</span>
       </div>
     </div>
 
     <div class="group">
       <h3>After hours</h3>
       <div class="setting-row">
-        <span>🌦️ Weather when idle</span>
+        <span>Weather when idle</span>
         <label class="switch">
           <input type="checkbox" id="weather-toggle">
           <span class="track"></span>
@@ -805,7 +691,7 @@
     <div class="group">
       <h3>Sleep schedule</h3>
       <div class="setting-row">
-        <span>😴 Screen off overnight</span>
+        <span>Screen off overnight</span>
         <label class="switch">
           <input type="checkbox" id="sleep-toggle">
           <span class="track"></span>
@@ -831,15 +717,15 @@
 
     <div class="group">
       <h3>Manual hold</h3>
-      <div class="seg" id="ttl-chips">
-        <button class="chip" data-ttl="60">1h</button>
-        <button class="chip" data-ttl="120">2h</button>
-        <button class="chip" data-ttl="240">4h</button>
+      <div class="chips" id="ttl-chips">
+        <button class="chip" data-ttl="60">1H</button>
+        <button class="chip" data-ttl="120">2H</button>
+        <button class="chip" data-ttl="240">4H</button>
         <button class="chip" data-ttl="0">∞</button>
       </div>
       <p class="hint">
         A tapped status releases back to Auto after this long, so a manual
-        press can’t suppress call &amp; calendar detection all day. The Timer
+        press can’t suppress call &amp; calendar detection all day. The Hold
         chips override this per press.
       </p>
     </div>
@@ -848,7 +734,7 @@
       <h3>Stream Deck &amp; API</h3>
       <div class="token-row">
         <code id="token">{{ api_token }}</code>
-        <button class="token-btn" id="token-copy">Copy</button>
+        <button class="token-btn" id="token-copy">COPY</button>
         <button class="token-btn" id="token-regen" title="Generate a new token">↻</button>
       </div>
       <p class="hint">
@@ -858,19 +744,16 @@
       </p>
     </div>
 
-    <a class="logout" href="/logout">Log out</a>
+    <a class="logout" href="/logout">LOG OUT</a>
   </section>
 
   <div id="toast"></div>
 
   <script>
     const LABELS = {{ labels_json | safe }};
-    const PRESET_COLORS = {{ preset_colors_json | safe }};
     const MSG_COLORS = {{ msg_colors_json | safe }};
     LABELS.focus = "Focus";
     LABELS.dumpster_fire = "This is Fine";
-    PRESET_COLORS.focus = "#6366f1";
-    PRESET_COLORS.dumpster_fire = "#e8912d";
     const DEMO = {{ 'true' if demo else 'false' }};
     const SOURCE_HINTS = {
       oncall: "call detected",
@@ -882,10 +765,8 @@
     let brightTimer = null;
 
     const $ = (id) => document.getElementById(id);
-    const pill = $("pill");
     const preview = $("preview");
     const countdown = $("countdown");
-    const countdownTxt = $("countdown-txt");
 
     const buzz = () => navigator.vibrate && navigator.vibrate(12);
 
@@ -924,35 +805,30 @@
     }
 
     function renderState() {
-      let label, dotColor;
+      let label;
       if (state.sleeping) {
         label = "Sleeping";
-        dotColor = "#666";
       }
       else if (state.status === "media") {
         label = state.media ? state.media.label : "GIF";
-        dotColor = "#d6409f";
       }
       else if (state.status === "clock") {
         label = state.weather ? "Clock · " + state.weather.temp + "°" : "Clock";
-        dotColor = "#60a5fa";
       }
       else if (state.status === "custom") {
         label = state.message ? state.message.text : "Custom";
-        dotColor = state.message ? (MSG_COLORS[state.message.color] || "#3b82f6") : "#3b82f6";
       } else if (state.showing_weather && state.weather) {
         label = state.weather.temp + "° · after hours";
-        dotColor = "#60a5fa";
       } else {
         label = LABELS[state.status] || state.status;
-        dotColor = PRESET_COLORS[state.status] || "#666";
       }
       if (SOURCE_HINTS[state.source] && !state.sleeping) {
         label += " · " + SOURCE_HINTS[state.source];
       }
-      pill.querySelector(".txt").textContent = label;
-      pill.style.setProperty("--dot", dotColor);
-      document.documentElement.style.setProperty("--glow", dotColor);
+      $("now-txt").textContent = label;
+      // The live countdown (renderCountdown) covers the timed-hold case.
+      $("hold-txt").textContent =
+        state.revert_at ? "" : (state.held ? " · HOLD ∞" : " · AUTO");
 
       const settings = state.settings || {};
       $("weather-toggle").checked = !!settings.weather_idle;
@@ -969,6 +845,9 @@
       document.querySelectorAll("#grid button.status").forEach((b) => {
         b.classList.toggle("active", b.dataset.key === state.status);
       });
+      const clockActive = state.status === "clock";
+      $("clock-btn").classList.toggle("active", clockActive);
+      $("clock-set").textContent = clockActive ? "· CURRENT" : "→ SET";
 
       // Focus chips: highlight the running timer (even while a call
       // temporarily outranks it on the panel). Tapping it again cancels.
@@ -980,12 +859,11 @@
       $("fire-btn").classList.toggle("active", state.status === "dumpster_fire");
 
       // Auto / hold bar.
-      const autoBtn = $("auto-btn");
-      autoBtn.classList.toggle("held", !!state.held);
-      $("auto-emoji").textContent = state.held ? "✋" : "✨";
-      $("auto-label").textContent = state.held
-        ? "On hold — tap to go Auto"
-        : "Auto · calls, focus & calendar";
+      $("auto-btn").classList.toggle("held", !!state.held);
+      $("auto-label").textContent = state.held ? "On hold" : "Auto";
+      $("auto-hint").textContent = state.held
+        ? "TAP TO GO AUTO"
+        : "CALLS · FOCUS · CALENDAR";
 
       document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
         c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
@@ -1006,19 +884,18 @@
     }
 
     function renderCountdown() {
-      if (!state.revert_at) { countdown.classList.remove("on"); return; }
+      if (!state.revert_at) { countdown.textContent = ""; return; }
       const left = Math.round(state.revert_at - Date.now() / 1000);
       if (left <= 0) {
-        countdown.classList.remove("on");
+        countdown.textContent = "";
         syncState();
         return;
       }
       const h = Math.floor(left / 3600);
       const m = Math.floor((left % 3600) / 60);
       const s = left % 60;
-      countdownTxt.textContent =
+      countdown.textContent = " · HOLD " +
         (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
-      countdown.classList.add("on");
     }
     setInterval(renderCountdown, 1000);
 
@@ -1092,16 +969,6 @@
       if (event.key === "Enter") $("gif-roll").click();
     });
 
-    $("fire-btn").addEventListener("click", () => {
-      buzz();
-      state.status = "dumpster_fire";
-      state.sleeping = false;
-      state.source = "manual";
-      state.held = true;
-      renderState();
-      sendUpdate(withTimer({ status: "dumpster_fire" }));
-    });
-
     $("upload-btn").addEventListener("click", () => $("upload-file").click());
     $("upload-file").addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -1133,7 +1000,7 @@
       backdrop.classList.remove("open");
       document.body.classList.remove("locked");
     }
-    $("gear").addEventListener("click", () => { buzz(); openSheet(); });
+    if ($("gear")) $("gear").addEventListener("click", () => { buzz(); openSheet(); });
     backdrop.addEventListener("click", closeSheet);
     sheet.querySelector(".grabber").addEventListener("click", closeSheet);
 
@@ -1183,18 +1050,23 @@
       return partial;
     }
 
-    $("grid").addEventListener("click", (event) => {
-      const button = event.target.closest("button.status");
-      if (!button) return;
+    function pressStatus(key) {
       buzz();
       // Optimistic: reflect the tap instantly, reconcile with the response.
-      state.status = button.dataset.key;
+      state.status = key;
       state.sleeping = false;
       state.source = "manual";
       state.held = true;
       renderState();
-      sendUpdate(withTimer({ status: button.dataset.key }));
+      sendUpdate(withTimer({ status: key }));
+    }
+
+    $("grid").addEventListener("click", (event) => {
+      const button = event.target.closest("button.status");
+      if (button) pressStatus(button.dataset.key);
     });
+    $("clock-btn").addEventListener("click", () => pressStatus("clock"));
+    $("fire-btn").addEventListener("click", () => pressStatus("dumpster_fire"));
 
     function sendMessage() {
       const text = $("msg-text").value.trim();

@@ -3,8 +3,9 @@
 Run once after deploying (any machine with Pillow):
     ./venv/bin/python3 make_icons.py
 
-The icon is the AH. monogram over a row of dots in the four status
-colors — a nod to the LED panel itself.
+The icon is the AH. monogram over a row of dots — a nod to the LED panel
+itself, in AH Field System materials (the hi-vis dot is the view's one
+allowed orange).
 """
 import os
 from pathlib import Path
@@ -12,8 +13,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-DOT_COLORS = ["#e5484d", "#30a46c", "#e8912d", "#8e4ec6"]
-BACKGROUND = "#16181d"
+DOT_COLORS = ["#57543E", "#B3A180", "#E4DDC9", "#FF5C1C"]
+BACKGROUND = "#191710"
 FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
@@ -42,7 +43,7 @@ def draw_icon(size, rounded=True):
         ((size - text_w) / 2 - bbox[0], size * 0.42 - text_h / 2 - bbox[1]),
         "AH.",
         font=font,
-        fill="#f2f2f7",
+        fill="#B3A180",
     )
 
     # Status-color dots underneath, like a lit pixel row.

@@ -587,9 +587,6 @@ def index():
         api_token="" if demo else auth.api_token(),
         state=payload,
         labels_json=json.dumps({key: preset["label"] for key, preset in PRESETS.items()}),
-        preset_colors_json=json.dumps(
-            {key: preset["ui_color"] for key, preset in PRESETS.items()}
-        ),
         msg_colors_json=json.dumps({name: c["ui"] for name, c in MESSAGE_COLORS.items()}),
     )
 
