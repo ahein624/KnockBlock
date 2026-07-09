@@ -15,3 +15,6 @@ static/*.png
 
 # Uploaded / fetched panel media
 media/
+
+# Dev harness runtime files
+dev/state/

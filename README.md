@@ -167,6 +167,24 @@ same URLs work from Apple Shortcuts ("Get Contents of URL") or cron.
 - `templates/index.html` — the phone UI
 - `hello_matrix.py` — standalone smoke test, no Flask required
 - `requirements.txt` — Python deps installed via pip (Flask, Pillow)
+- `dev/` — hardware-free dev server (stubbed panel) for UI work
+
+## Development (no hardware needed)
+
+Everything except the physical panel runs on any machine:
+
+```bash
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+./venv/bin/python3 dev/dev_server.py
+```
+
+Open http://127.0.0.1:5099 and log in with `devpassword1`. Runtime files
+live in `dev/state/` (gitignored), so a real sign's `auth.json` and
+`state.json` are never touched. The dev server poses as a public client
+so the login and demo flows are exercisable; see the switches documented
+at the top of `dev/dev_server.py` (`KNOCKBLOCK_DEV_LOCAL`,
+`KNOCKBLOCK_DEV_UNCLAIMED`, `KNOCKBLOCK_DEV_FRESH`).
 
 ## Setup, step by step
 
