@@ -3,6 +3,24 @@
 A phone-controlled office status sign. Tap a button on your phone; the status
 instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 
+## Quick start
+
+On a fresh Raspberry Pi with the panel wired up (see [Hardware](#hardware)):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ahein624/KnockBlock/main/install.sh | bash
+```
+
+The installer clones the code, builds the panel driver, and installs the
+`knockblock` systemd service (it may ask you to reboot once for the audio
+change, then re-run). When it finishes, open `http://<pi-ip>:5000` from a
+phone on the same WiFi to **claim your sign**: set a password, name it, and
+you're live. Re-running the installer later is the upgrade path — it never
+touches your password, state, or uploaded media.
+
+Prefer to see every step, or debugging a panel? The full walkthrough is in
+[Manual setup](#setup-step-by-step).
+
 ## Features
 
 - **Status presets** with emoji icons (On a Call, Free, In a Meeting, Do Not
