@@ -732,6 +732,16 @@
       </p>
     </div>
 
+    <div class="group">
+      <h3>Software</h3>
+      <div class="setting-row">
+        <span id="version-lbl"></span>
+        <button class="token-btn" id="update-btn">Update sign</button>
+      </div>
+      <p class="hint" id="update-hint">Pulls the latest code and restarts;
+        rolls back by itself if the sign doesn't come back up.</p>
+    </div>
+
     <a class="logout" href="/logout">Log out</a>
   </section>
 
@@ -1123,6 +1133,56 @@
         showToast("New token generated");
       } catch (err) {
         showToast(err.message || "Couldn't reach the sign", true);
+      }
+    });
+
+    /* ---- self-update ---- */
+    const UPDATE_PHRASES = {
+      fetching: "Checking for updates…",
+      installing: "Installing…",
+      restarting: "Restarting the sign…",
+      done: "Up to date.",
+      failed: "Update failed",
+      rolled_back: "Update didn't take — rolled back to the previous version.",
+    };
+    let updatePoll = null;
+    async function pollUpdate() {
+      try {
+        const res = await fetch("/api/update/status");
+        if (!res.ok) return; // 401 shouldn't happen; transient errors retried
+        const body = await res.json();
+        $("version-lbl").textContent = body.version;
+        const u = body.update;
+        if (!u) return;
+        let text = UPDATE_PHRASES[u.phase] || u.phase;
+        if (u.error) text += " — " + u.error;
+        $("update-hint").textContent = text;
+        if (u.phase === "done" || u.phase === "failed" || u.phase === "rolled_back") {
+          clearInterval(updatePoll);
+          updatePoll = null;
+          $("update-btn").disabled = false;
+          if (u.phase === "done" && u.to && u.from !== u.to) {
+            $("update-hint").textContent = "Updated — reload the app to get the new version.";
+          }
+        }
+      } catch (err) {
+        // Expected while the service restarts mid-update; keep polling.
+      }
+    }
+    pollUpdate();
+    $("update-btn").addEventListener("click", async () => {
+      buzz();
+      $("update-btn").disabled = true;
+      $("update-hint").textContent = "Starting…";
+      try {
+        const res = await fetch("/api/update", { method: "POST" });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Request failed");
+        if (!updatePoll) updatePoll = setInterval(pollUpdate, 2000);
+      } catch (err) {
+        $("update-btn").disabled = false;
+        $("update-hint").textContent = "";
+        showToast(err.message || "Couldn't start the update", true);
       }
     });
 

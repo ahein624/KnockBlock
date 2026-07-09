@@ -5,6 +5,8 @@ import ipaddress
 import json
 import random
 import re
+import shutil
+import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
@@ -632,6 +634,57 @@ def api_token():
     if request.method == "POST":
         return jsonify(token=auth.regenerate_token())
     return jsonify(token=auth.api_token())
+
+
+UPDATE_STATUS_FILE = Path(__file__).resolve().parent / "update_status.json"
+UPDATE_SCRIPT = Path(__file__).resolve().parent / "scripts" / "update.sh"
+
+
+def _app_version():
+    try:
+        return subprocess.check_output(
+            ["git", "describe", "--tags", "--always"],
+            cwd=Path(__file__).resolve().parent, text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+APP_VERSION = _app_version()  # code can't change without a restart
+
+
+@app.route("/api/update", methods=["POST"])
+def start_update():
+    # Session or local only, like /api/token: a leaked API token must not
+    # be able to trigger code swaps on the sign.
+    if not (session.get("authed") or _is_local_request()):
+        return jsonify(error="unauthorized"), 401
+    repo = Path(__file__).resolve().parent
+    if not (repo / ".git").exists():
+        return jsonify(error="this install isn't a git clone — reinstall with install.sh"), 400
+    # systemd-run detaches the updater from this process, so it survives
+    # the service restart it performs. Outside systemd (dev), plain Popen.
+    if shutil.which("systemd-run"):
+        command = ["systemd-run", "--unit", "knockblock-update", "--collect", str(UPDATE_SCRIPT)]
+    else:
+        command = [str(UPDATE_SCRIPT)]
+    try:
+        subprocess.Popen(command, cwd=repo, start_new_session=True)
+    except OSError as exc:
+        return jsonify(error=f"couldn't start the updater: {exc}"), 500
+    return jsonify(started=True), 202
+
+
+@app.route("/api/update/status")
+def update_status():
+    if not (session.get("authed") or _is_local_request()):
+        return jsonify(error="unauthorized"), 401
+    try:
+        status = json.loads(UPDATE_STATUS_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        status = None
+    return jsonify(version=APP_VERSION, update=status)
 
 
 @app.route("/")
