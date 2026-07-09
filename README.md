@@ -66,10 +66,20 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   (state, preview, countdowns) but every write is refused with a polite
   quip; secrets (calendar URL, location, API token) are redacted and the
   settings sheet is hidden. Logging in normally exits demo mode
+- **Scheduled statuses** — recurring rules like "Lunch, 12:00–13:00,
+  Mon–Fri" the sign follows on its own; presets, the clock, or a custom
+  message, overnight windows included. A manual tap overrides; Auto resumes
+- **Weekly insights** — a "This week" panel with time spent in meetings,
+  calls, and focus, from an append-only local history (three months kept,
+  message text never logged)
+- **First-run claim wizard** — a fresh sign is claimed from a phone on its
+  own WiFi: password, name, work hours, API token. No SSH needed
+- **Self-update** — an "Update sign" button pulls the latest code, restarts,
+  and rolls itself back if the sign doesn't come back up
 - **Priority arbiter** — when several sources are active at once:
-  manual hold → on-call → focus → calendar → idle. Manual presses release
-  after a configurable TTL (default 2h) so a tapped button can't suppress
-  autodetect all day; the Auto button releases a hold early
+  manual hold → on-call → focus → calendar → schedule → idle. Manual
+  presses release after a configurable TTL (default 2h) so a tapped button
+  can't suppress autodetect all day; the Auto button releases a hold early
 
 ## Login & security
 
@@ -140,17 +150,27 @@ Authenticate with `Authorization: Bearer <token>`, an `X-Api-Token` header,
 or `?token=<token>`:
 
 - `GET /api/state` — what's showing and why (`status`, `source`, `held`),
-  plus brightness, recents, focus/calendar state, settings, weather
+  plus brightness, recents, focus/calendar state, schedules, settings,
+  weather
 - `POST /api/state` — any subset of:
   `{"status": "free" | "on_a_call" | ... | "clock" | "auto"}` (`auto`
   releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
   `{"focus_minutes": 25}` (0 cancels),
   `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
-  `{"settings": {"weather_idle": true, "work_start": "08:00",
-  "work_end": "18:00", "units": "f", "lat": null, "lon": null,
-  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00",
-  "ical_url": "https://…", "manual_ttl_minutes": 120}}`
+  `{"settings": {"sign_name": "Knockblock", "weather_idle": true,
+  "work_start": "08:00", "work_end": "18:00", "units": "f", "lat": null,
+  "lon": null, "sleep_enabled": true, "sleep_start": "22:00",
+  "sleep_end": "07:00", "ical_url": "https://…",
+  "manual_ttl_minutes": 120}}`,
+  `{"schedules": [{"label": "Lunch", "status": "custom",
+  "message": {"text": "Back at 1", "color": "orange"}, "start": "12:00",
+  "end": "13:00", "days": [0,1,2,3,4], "enabled": true}]}` — full-list
+  replace; `status` is a preset key, `"clock"`, or `"custom"` (which
+  requires `message`); `start > end` spans midnight; first matching rule
+  wins
+- `GET /api/insights?days=7` — seconds per status per local day plus
+  totals, from the on-device history (max 31 days; blocked in demo mode)
 - `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
   sensor; the status clears itself 15s after the last `true`
 - `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
@@ -160,6 +180,9 @@ or `?token=<token>`:
 - `GET|POST /api/set/<status>` — one-URL change for buttons:
   `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
   `/api/set/dumpster_fire`, `/api/set/auto`
+- `POST /api/update` / `GET /api/update/status` — start the self-updater /
+  watch its progress. Session or LAN only, like `GET|POST /api/token` —
+  a leaked API token can't swap code or read credentials
 - `GET /preview.png` — PNG of what the panel currently shows
 
 ## On-call laptop sensors
@@ -204,13 +227,25 @@ same URLs work from Apple Shortcuts ("Get Contents of URL") or cron.
   power the panel from the Pi's 5V pins — a 64x32 panel at full brightness can
   draw more current than the Pi can safely supply, and both will brown out.
 
+## Updating
+
+Settings → Software → **Update sign** pulls the latest code, restarts the
+service, and health-checks itself — if the sign doesn't come back up it
+rolls back to the version that worked and says so. Under the hood it's
+`scripts/update.sh` run as a transient systemd unit; your password, state,
+history, and uploaded media are untracked files the update never touches.
+Re-running `install.sh` does the same job from a shell.
+
 ## Project layout
 
 - `app.py` — Flask web server; exposes the phone UI and the JSON API
 - `auth.py` — password + API-token auth, backed by `auth.json` (not in git)
 - `matrix.py` — wraps `rpi-rgb-led-matrix` to render a preset (text + colors) to the panel
 - `presets.py` — the status screens (label, text lines, colors) shown as phone buttons
-- `templates/index.html` — the phone UI
+- `history.py` — append-only status history + the insights aggregation
+- `templates/` — the phone UI, login, and first-run claim wizard
+- `install.sh` / `deploy/` — one-command installer and the systemd unit
+- `scripts/update.sh` — the self-updater (fetch, swap, health-check, roll back)
 - `hello_matrix.py` — standalone smoke test, no Flask required
 - `requirements.txt` — Python deps installed via pip (Flask, Pillow)
 - `dev/` — hardware-free dev server (stubbed panel) for UI work
@@ -373,3 +408,17 @@ Check status and logs:
 sudo systemctl status knockblock
 sudo journalctl -u knockblock -f
 ```
+
+## Future work
+
+- **WiFi captive-portal provisioning** — claim a sign that isn't on WiFi
+  yet, straight from the phone; today the Pi joins WiFi via the Raspberry
+  Pi Imager presets or `nmtui`
+- **Tailnet-as-local option** — an opt-in `trusted_networks` key so tailnet
+  clients skip the password like LAN clients do
+- **Drag-to-reorder schedules** — priority is list order; today it's
+  up-arrows
+
+---
+
+*Practical over decorative.*
