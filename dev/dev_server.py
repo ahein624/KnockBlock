@@ -39,6 +39,8 @@ kb.STATE_FILE = RUN_DIR / "state.json"
 from matrix import MatrixDisplay
 
 kb.display = MatrixDisplay()
+# Never let the Update button reset the development checkout.
+kb.UPDATE_SCRIPT = RUN_DIR / "no-self-update-in-dev"
 if not auth.password_set() and not os.environ.get("KNOCKBLOCK_DEV_UNCLAIMED"):
     auth.set_password("devpassword1")
 if not os.environ.get("KNOCKBLOCK_DEV_LOCAL"):

@@ -73,14 +73,18 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
 
 ## Login & security
 
-The password is set from the shell, never through the web (so an exposed,
-not-yet-configured sign can't be claimed by a stranger):
+A fresh sign is **claimed** from its own network: open `http://<pi-ip>:5000`
+from a phone on the sign's WiFi and the first-run wizard asks for a
+password, a name, and your work hours. The wizard only answers LAN clients
+and only while no password exists, so an internet-exposed unclaimed sign
+still can't be seized by a stranger. From a terminal (also the only way to
+*reset* a forgotten password):
 
 ```bash
 sudo ./venv/bin/python3 app.py --set-password
 ```
 
-This also prints the **API token** used by scripted clients
+Claiming also reveals the **API token** used by scripted clients
 (`--show-token` reprints it; the phone UI shows it too, with a regenerate
 button). Logins get a long-lived session cookie — right for a personal PWA.
 Repeated failed logins back off with a per-IP lockout.
@@ -104,6 +108,30 @@ domain it serves.
 If you expose the sign to the internet, put it behind HTTPS (a reverse proxy
 like Caddy, or a Cloudflare tunnel) — over plain HTTP the password and token
 travel in the clear. A Tailscale/VPN-only setup avoids the exposure entirely.
+
+## Remote access
+
+The recommended way to reach the sign away from home is **Tailscale** — no
+port forwarding, no reverse proxy, no exposed attack surface:
+
+1. On the Pi: `curl -fsSL https://tailscale.com/install.sh | sh`, then
+   `sudo tailscale up`.
+2. Install the Tailscale app on your phone and sign in to the same tailnet.
+3. Visit `http://<pi-tailscale-name>:5000` (MagicDNS) from anywhere. For
+   HTTPS — which lets the phone use the clipboard API and installs more
+   cleanly as a PWA — run `sudo tailscale serve --bg 5000` and use the
+   `https://…ts.net` URL it prints.
+
+One deliberate quirk: Tailscale addresses live in `100.64.0.0/10`, which is
+*not* a private range, so tailnet clients are asked for the password like
+any other remote visitor. That's the safe default — anyone you share your
+tailnet with shouldn't automatically control your door.
+
+The advanced alternative — a public domain through a reverse proxy or
+Cloudflare tunnel — works with the `public_host` / `untrusted_proxies` keys
+above; that's how the original sign runs. WiFi captive-portal provisioning
+(configuring the Pi's WiFi from the phone) is future work; for now the Pi
+joins WiFi the usual way (Raspberry Pi Imager presets or `nmtui`).
 
 ## API
 
