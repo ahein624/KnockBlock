@@ -5,6 +5,7 @@ import ipaddress
 import json
 import random
 import re
+import secrets
 import shutil
 import subprocess
 import threading
@@ -32,6 +33,7 @@ from presets import (
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 MAX_MESSAGE_LENGTH = 80
 MAX_SIGN_NAME = 40
+MAX_SCHEDULES = 20
 MAX_RECENTS = 6
 MAX_REVERT_MINUTES = 12 * 60
 PREVIEW_SCALE = 6
@@ -105,6 +107,7 @@ state = {
     "oncall_until": None,
     "brightness": 70,
     "recents": [],
+    "schedules": [],  # recurring rules; see _valid_schedule for the shape
     "settings": dict(DEFAULT_SETTINGS),
 }
 
@@ -120,6 +123,48 @@ def _valid_message(message):
             "color": _valid_color(message.get("color")),
         }
     return None
+
+
+def _valid_schedule(rule):
+    """Normalize one recurring-schedule rule, or None if it's unusable.
+
+    Shape: {"id", "enabled", "label", "status", "message", "start", "end",
+    "days"} — status is a preset key, "clock", or "custom" (which requires
+    a message). start > end means the window spans midnight and belongs to
+    the day it starts on. start == end is rejected rather than meaning
+    "all day" — an always-on rule is just a status.
+    """
+    if not isinstance(rule, dict):
+        return None
+    status = rule.get("status")
+    message = _valid_message(rule.get("message")) if status == "custom" else None
+    if status == "custom":
+        if message is None:
+            return None
+    elif status not in list(PRESETS) + ["clock"]:
+        return None
+    start, end = rule.get("start"), rule.get("end")
+    if not (isinstance(start, str) and TIME_RE.match(start)
+            and isinstance(end, str) and TIME_RE.match(end) and start != end):
+        return None
+    if not isinstance(rule.get("days"), list):
+        return None
+    days = sorted({d for d in rule["days"] if isinstance(d, int) and 0 <= d <= 6})
+    if not days:
+        return None
+    rule_id = rule.get("id")
+    if not (isinstance(rule_id, str) and re.fullmatch(r"[0-9a-f]{8}", rule_id)):
+        rule_id = secrets.token_hex(4)
+    return {
+        "id": rule_id,
+        "enabled": bool(rule.get("enabled", True)),
+        "label": str(rule.get("label") or "").strip()[:MAX_SIGN_NAME],
+        "status": status,
+        "message": message,
+        "start": start,
+        "end": end,
+        "days": days,
+    }
 
 
 def _load_state():
@@ -186,6 +231,11 @@ def _load_state():
             for entry in recents
             if isinstance(entry, dict) and entry.get("text")
         ][:MAX_RECENTS]
+    schedules = saved.get("schedules")
+    if isinstance(schedules, list):
+        rules = [_valid_schedule(rule) for rule in schedules]
+        state["schedules"] = [rule for rule in rules if rule][:MAX_SCHEDULES]
+
     settings = saved.get("settings")
     if isinstance(settings, dict):
         merged = dict(DEFAULT_SETTINGS)
@@ -237,9 +287,42 @@ def _in_work_hours(now=None):
     return _in_window(settings["work_start"], settings["work_end"], now)
 
 
+def _active_schedule(now=None):
+    """First enabled rule whose window covers now — list order is priority.
+
+    An overnight window (start > end) belongs to the day it starts on: a
+    Mon 22:00–02:00 rule matches Monday evening and Tuesday morning."""
+    now = now or datetime.now()
+    current = now.strftime("%H:%M")
+    weekday = now.weekday()
+    yesterday = (weekday - 1) % 7
+    for rule in state["schedules"]:
+        if not rule["enabled"]:
+            continue
+        if rule["start"] <= rule["end"]:
+            if weekday in rule["days"] and rule["start"] <= current < rule["end"]:
+                return rule
+        else:
+            if weekday in rule["days"] and current >= rule["start"]:
+                return rule
+            if yesterday in rule["days"] and current < rule["end"]:
+                return rule
+    return None
+
+
+def _schedule_end_ts(rule, now_ts):
+    """Epoch when the currently-active rule's window closes."""
+    now = datetime.fromtimestamp(now_ts)
+    hour, minute = map(int, rule["end"].split(":"))
+    end = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if end <= now:  # overnight window still running: it closes tomorrow
+        end += timedelta(days=1)
+    return end.timestamp()
+
+
 def _arbitrate(now):
     """Decide what the sign shows. Highest-priority active source wins:
-    manual hold → on-call → focus timer → calendar → idle.
+    manual hold → on-call → focus timer → calendar → schedule → idle.
 
     Returns (source, status, message, countdown_until). Expired holds and
     timers are cleared as a side effect, so callers must hold the lock.
@@ -261,6 +344,9 @@ def _arbitrate(now):
         return "focus", "focus", None, focus["until"]
     if calendar_source.current(calendar_events, now):
         return "calendar", "in_a_meeting", None, None
+    rule = _active_schedule(datetime.fromtimestamp(now))
+    if rule:
+        return "schedule", rule["status"], rule["message"], _schedule_end_ts(rule, now)
     return "idle", DEFAULT_PRESET, None, None
 
 
@@ -435,6 +521,11 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        # Spectators don't get the schedule list (labels are personal).
+        "schedules": [] if demo else state["schedules"],
+        "schedule_label": (
+            (_active_schedule() or {}).get("label") if source == "schedule" else None
+        ),
         # Spectators don't get the secret calendar URL or the location.
         "settings": (
             {**state["settings"], "ical_url": None, "lat": None, "lon": None}
@@ -794,6 +885,19 @@ def set_state():
                 if not name:
                     return jsonify(error="sign_name can't be empty"), 400
                 settings["sign_name"] = name[:MAX_SIGN_NAME]
+            _render_current()
+
+        if "schedules" in data:
+            incoming = data["schedules"]
+            if not isinstance(incoming, list) or len(incoming) > MAX_SCHEDULES:
+                return jsonify(error=f"schedules must be a list of at most {MAX_SCHEDULES} rules"), 400
+            validated = []
+            for index, rule in enumerate(incoming):
+                valid = _valid_schedule(rule)
+                if valid is None:
+                    return jsonify(error=f"schedule rule {index + 1} is invalid"), 400
+                validated.append(valid)
+            state["schedules"] = validated  # full-list replace, like settings
             _render_current()
 
         minutes = data.get("revert_minutes")

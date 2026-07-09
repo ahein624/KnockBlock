@@ -463,6 +463,50 @@
   .text-input::placeholder { color: var(--ink-faint); }
   .text-input:focus { outline: 1px solid var(--tan); outline-offset: -1px; }
 
+  /* ---- schedule editor ---- */
+  .sched-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+  }
+  .sched-row.off .sched-name, .sched-row.off .sched-meta { opacity: 0.5; }
+  .sched-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .sched-name {
+    font: 600 14px var(--font-body);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sched-meta { font: 400 12px var(--font-body); color: var(--ink-faint); }
+  .mini-btn {
+    padding: 6px 9px;
+    font: 600 12px var(--font-body);
+    color: var(--ink-soft);
+    background: none;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .mini-btn:disabled { opacity: 0.3; }
+  .dayrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .daychip input { display: none; }
+  .daychip span {
+    display: block;
+    padding: 6px 10px;
+    font: 500 12px var(--font-body);
+    color: var(--tan);
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .daychip input:checked + span { background: var(--tan); border-color: var(--tan); color: var(--bg); }
+  select.text-input { appearance: none; -webkit-appearance: none; }
+
   .token-row { display: flex; align-items: center; gap: 8px; }
   .token-row code {
     flex: 1;
@@ -694,6 +738,43 @@
     </div>
 
     <div class="group">
+      <h3>Scheduled statuses</h3>
+      <div class="group" id="sched-list"></div>
+      <div class="compose-row">
+        <input id="sched-label" type="text" class="text-input" maxlength="40"
+               placeholder="Label (e.g. Lunch)" autocomplete="off" style="flex: 1;">
+        <select id="sched-status" class="text-input" style="flex: 1;">
+          {% for key, preset in presets.items() %}
+          <option value="{{ key }}">{{ preset.label }}</option>
+          {% endfor %}
+          <option value="clock">Clock &amp; weather</option>
+          <option value="custom">Custom message…</option>
+        </select>
+      </div>
+      <input id="sched-msg" type="text" class="text-input" maxlength="80"
+             placeholder="Message to show" autocomplete="off" hidden>
+      <div class="hours-row">
+        <input type="time" id="sched-start" value="12:00">
+        <span class="sep">to</span>
+        <input type="time" id="sched-end" value="13:00">
+      </div>
+      <div class="dayrow" id="sched-days">
+        {% for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+        <label class="daychip">
+          <input type="checkbox" value="{{ loop.index0 }}" {% if loop.index0 < 5 %}checked{% endif %}>
+          <span>{{ day }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <button class="token-btn" id="sched-save">Add schedule</button>
+      <p class="hint">
+        The sign follows these on its own — calls, focus timers, and the
+        calendar still outrank them, and a manual tap overrides. When two
+        overlap, the top rule wins.
+      </p>
+    </div>
+
+    <div class="group">
       <h3>Calendar</h3>
       <input id="ical-url" type="url" class="text-input" placeholder="Secret iCal address" autocomplete="off">
       <p class="hint" id="ical-hint">
@@ -824,9 +905,13 @@
         label += " · " + SOURCE_HINTS[state.source];
       }
       // The badge doubles as the release-to-auto control; so does the
-      // "Hold it there" subtitle while something is held.
-      $("held-badge").hidden = !state.held;
-      $("held-txt").textContent = label + " · held";
+      // "Hold it there" subtitle while something is held. A scheduled
+      // status borrows the badge as a read-only "why" indicator.
+      const scheduled = state.source === "schedule";
+      $("held-badge").hidden = !(state.held || scheduled);
+      $("held-txt").textContent = state.held
+        ? label + " · held"
+        : (state.schedule_label || label) + " · scheduled";
       const holdSub = $("hold-sub");
       holdSub.textContent = state.held ? "Back to auto now" : "Then back to auto";
       holdSub.classList.toggle("act", !!state.held);
@@ -876,8 +961,123 @@
       $("bright-val").textContent = bright.value + "%";
 
       renderRecents();
+      renderSchedules();
       renderCountdown();
     }
+
+    /* ---- schedule editor ---- */
+    const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    function schedName(rule) {
+      if (rule.label) return rule.label;
+      if (rule.status === "custom") return rule.message.text;
+      return LABELS[rule.status] || "Clock & weather";
+    }
+
+    function schedMeta(rule) {
+      const days = rule.days.length === 7
+        ? "every day"
+        : rule.days.map((d) => DAY_NAMES[d]).join(" ");
+      return rule.start + "–" + rule.end + " · " + days;
+    }
+
+    function sendSchedules(list) {
+      sendUpdate({ schedules: list });
+    }
+
+    function renderSchedules() {
+      const box = $("sched-list");
+      const list = state.schedules || [];
+      const sig = JSON.stringify(list);
+      if (box.dataset.sig === sig) return;
+      box.dataset.sig = sig;
+      box.innerHTML = "";
+      list.forEach((rule, i) => {
+        const row = document.createElement("div");
+        row.className = "sched-row" + (rule.enabled ? "" : " off");
+
+        const info = document.createElement("div");
+        info.className = "sched-info";
+        const name = document.createElement("span");
+        name.className = "sched-name";
+        name.textContent = schedName(rule);
+        const meta = document.createElement("span");
+        meta.className = "sched-meta";
+        meta.textContent = schedMeta(rule);
+        info.append(name, meta);
+
+        const up = document.createElement("button");
+        up.className = "mini-btn";
+        up.textContent = "↑";
+        up.title = "Higher priority";
+        up.disabled = i === 0;
+        up.addEventListener("click", () => {
+          buzz();
+          const next = list.slice();
+          [next[i - 1], next[i]] = [next[i], next[i - 1]];
+          sendSchedules(next);
+        });
+
+        const sw = document.createElement("label");
+        sw.className = "switch";
+        const swInput = document.createElement("input");
+        swInput.type = "checkbox";
+        swInput.checked = rule.enabled;
+        swInput.addEventListener("change", () => {
+          buzz();
+          const next = list.map((r, j) => j === i ? { ...r, enabled: swInput.checked } : r);
+          sendSchedules(next);
+        });
+        const track = document.createElement("span");
+        track.className = "track";
+        sw.append(swInput, track);
+
+        const del = document.createElement("button");
+        del.className = "mini-btn";
+        del.textContent = "✕";
+        del.title = "Delete";
+        del.addEventListener("click", () => {
+          buzz();
+          sendSchedules(list.filter((_, j) => j !== i));
+        });
+
+        row.append(info, up, sw, del);
+        box.appendChild(row);
+      });
+    }
+
+    $("sched-status").addEventListener("change", (event) => {
+      $("sched-msg").hidden = event.target.value !== "custom";
+    });
+
+    $("sched-save").addEventListener("click", () => {
+      const status = $("sched-status").value;
+      const rule = {
+        enabled: true,
+        label: $("sched-label").value.trim(),
+        status,
+        message: status === "custom"
+          ? { text: $("sched-msg").value.trim(), color: "blue" }
+          : null,
+        start: $("sched-start").value,
+        end: $("sched-end").value,
+        days: [...document.querySelectorAll("#sched-days input:checked")]
+          .map((c) => Number(c.value)),
+      };
+      if (status === "custom" && !rule.message.text) {
+        showToast("Type the message to show", true);
+        return;
+      }
+      if (!rule.days.length) { showToast("Pick at least one day", true); return; }
+      if (!rule.start || !rule.end || rule.start === rule.end) {
+        showToast("Start and end need to differ", true);
+        return;
+      }
+      buzz();
+      sendSchedules([...(state.schedules || []), rule]);
+      $("sched-label").value = "";
+      $("sched-msg").value = "";
+    });
 
     function renderCountdown() {
       if (!state.revert_at) { countdown.textContent = ""; return; }
