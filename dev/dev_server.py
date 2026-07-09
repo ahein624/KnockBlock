@@ -33,6 +33,8 @@ import media
 media.MEDIA_DIR = RUN_DIR / "media"
 media.CURRENT_FILE = media.MEDIA_DIR / "current"
 media.FIRE_GIF = media.MEDIA_DIR / "fire.gif"
+import history
+history.HISTORY_DIR = RUN_DIR
 import app as kb
 kb.STATE_FILE = RUN_DIR / "state.json"
 

@@ -316,6 +316,51 @@
     color: var(--ink-faint);
   }
 
+  /* ---- insights ---- */
+  #insights summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #insights summary::-webkit-details-marker { display: none; }
+  .insights-sum {
+    font: 400 12px var(--font-body);
+    color: var(--ink-faint);
+    text-align: right;
+  }
+  .insights-bars { display: grid; gap: 6px; padding-top: 10px; }
+  .iday { display: flex; align-items: center; gap: 8px; }
+  .iday .dlbl { width: 34px; font: 400 11px var(--font-body); color: var(--ink-faint); }
+  .iday .track {
+    flex: 1;
+    height: 14px;
+    display: flex;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .iseg { height: 100%; flex-shrink: 0; }
+  .ilegend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+    font: 400 11px var(--font-body);
+    color: var(--ink-soft);
+  }
+  .ilegend .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
   /* ---- footer ---- */
   .footbar {
     display: flex;
@@ -672,6 +717,18 @@
       <p class="note">Shows on the panel as a manual hold — the hold timer
         and TTL apply, and auto clears it.</p>
     </section>
+
+    {% if not demo %}
+    <section class="fieldset">
+      <details id="insights">
+        <summary>
+          <h2>This week</h2>
+          <span class="insights-sum" id="insights-sum">Tap for the breakdown</span>
+        </summary>
+        <div class="insights-bars" id="insights-bars"></div>
+      </details>
+    </section>
+    {% endif %}
 
     <section class="footbar">
       <span>KNOCKBLOCK</span>
@@ -1335,6 +1392,96 @@
         showToast(err.message || "Couldn't reach the sign", true);
       }
     });
+
+    /* ---- weekly insights ---- */
+    const INSIGHT_COLORS = {
+      on_a_call: "#e5484d",
+      in_a_meeting: "#e8912d",
+      do_not_disturb: "#8e4ec6",
+      focus: "#6366f1",
+      custom: "#C9B48F",
+      media: "#d6409f",
+      dumpster_fire: "#E85D26",
+    };
+    const INSIGHT_NAMES = {
+      on_a_call: "calls",
+      in_a_meeting: "meetings",
+      do_not_disturb: "do not disturb",
+      focus: "focus",
+      custom: "messages",
+      media: "GIFs",
+      dumpster_fire: "fires",
+    };
+    const insightsBox = $("insights");
+
+    function fmtHours(seconds) {
+      const h = seconds / 3600;
+      if (h >= 10) return Math.round(h) + "h";
+      if (h >= 1) return (Math.round(h * 10) / 10) + "h";
+      return Math.max(1, Math.round(seconds / 60)) + "m";
+    }
+
+    async function loadInsights() {
+      let body;
+      try {
+        const res = await fetch("/api/insights?days=7");
+        if (!res.ok) throw new Error();
+        body = await res.json();
+      } catch (err) {
+        $("insights-sum").textContent = "Couldn't load";
+        return;
+      }
+      const headline = Object.entries(body.totals)
+        .filter(([status, s]) => INSIGHT_COLORS[status] && s >= 60)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([status, s]) => fmtHours(s) + " " + INSIGHT_NAMES[status]);
+      $("insights-sum").textContent = headline.length
+        ? headline.join(" · ")
+        : "Nothing tracked yet";
+
+      const bars = $("insights-bars");
+      bars.innerHTML = "";
+      const seen = new Set();
+      body.days.forEach((day) => {
+        const row = document.createElement("div");
+        row.className = "iday";
+        const lbl = document.createElement("span");
+        lbl.className = "dlbl";
+        lbl.textContent = new Date(day.date + "T12:00:00")
+          .toLocaleDateString(undefined, { weekday: "short" });
+        const track = document.createElement("div");
+        track.className = "track";
+        Object.entries(day.seconds).forEach(([status, s]) => {
+          if (!INSIGHT_COLORS[status]) return; // free/clock/idle stay blank
+          seen.add(status);
+          const seg = document.createElement("span");
+          seg.className = "iseg";
+          seg.style.background = INSIGHT_COLORS[status];
+          seg.style.width = (s / 86400 * 100).toFixed(2) + "%";
+          seg.title = INSIGHT_NAMES[status] + " " + fmtHours(s);
+          track.appendChild(seg);
+        });
+        row.append(lbl, track);
+        bars.appendChild(row);
+      });
+      const legend = document.createElement("div");
+      legend.className = "ilegend";
+      seen.forEach((status) => {
+        const item = document.createElement("span");
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dot.style.background = INSIGHT_COLORS[status];
+        item.append(dot, INSIGHT_NAMES[status]);
+        legend.appendChild(item);
+      });
+      if (seen.size) bars.appendChild(legend);
+    }
+    if (insightsBox) {
+      insightsBox.addEventListener("toggle", () => {
+        if (insightsBox.open) loadInsights();
+      });
+    }
 
     /* ---- self-update ---- */
     const UPDATE_PHRASES = {

@@ -19,6 +19,7 @@ from PIL import Image
 
 import auth
 import calendar_source
+import history
 import media
 import weather
 from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
@@ -396,11 +397,26 @@ def _focus_countdown(now):
     return f"{left // 60}:{left % 60:02d}"
 
 
+_last_logged = None
+
+
+def _record_transition(source, status):
+    """One history line per arbitration outcome change (caller holds lock)."""
+    global _last_logged
+    if (source, status) != _last_logged:
+        _last_logged = (source, status)
+        try:
+            history.append(source, status)
+        except OSError:
+            pass  # a full SD card shouldn't take down rendering
+
+
 def _render_current(force=False):
     """Render whatever should be on the panel now; skips no-op repaints."""
     global render_signature
     now_dt = datetime.now()
     source, status, message, _ = _arbitrate(time.time())
+    _record_transition(source, status)
     if _sleeping(source, status, now_dt):
         signature = ("sleep",)
     elif status == "media":
@@ -819,6 +835,17 @@ def preview():
 def get_state():
     with lock:
         return jsonify(_api_payload(demo=_demo_active()))
+
+
+@app.route("/api/insights")
+def insights():
+    # Not on the demo allowlist in _require_auth — spectators see the live
+    # sign, not a week of the owner's working patterns.
+    try:
+        days = min(31, max(1, int(request.args.get("days", 7))))
+    except (TypeError, ValueError):
+        days = 7
+    return jsonify(history.aggregate(days))
 
 
 @app.route("/api/state", methods=["POST"])
