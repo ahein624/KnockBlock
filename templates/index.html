@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Bitter:wght@500;600;700&display=swap" rel="stylesheet">
-<title>AH.knockblock</title>
+<title>AH. {{ sign_name }}</title>
 <style>
   /* AH.knockblock — warm field style; orange marks what's active right now. */
   :root {
@@ -532,7 +532,7 @@
 </head>
 <body>
   <header>
-    <h1 class="wordmark"><span class="ah">AH.</span><span>Knockblock</span></h1>
+    <h1 class="wordmark"><span class="ah">AH.</span><span id="sign-name">{{ sign_name }}</span></h1>
     {% if not demo %}<button class="cfg" id="gear" aria-label="Settings">SETTINGS</button>{% endif %}
   </header>
   <main>
@@ -639,6 +639,12 @@
   <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="grabber"></div>
     <h2>Settings</h2>
+
+    <div class="group">
+      <h3>Sign name</h3>
+      <input id="sign-name-input" type="text" class="text-input" maxlength="40"
+             placeholder="Knockblock" autocomplete="off">
+    </div>
 
     <div class="group">
       <h3>Brightness <span id="bright-val"></span></h3>
@@ -843,6 +849,11 @@
       document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
         c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
 
+      const nameInput = $("sign-name-input");
+      if (document.activeElement !== nameInput) nameInput.value = settings.sign_name || "";
+      $("sign-name").textContent = settings.sign_name || "Knockblock";
+      document.title = "AH. " + (settings.sign_name || "Knockblock");
+
       const ical = $("ical-url");
       if (document.activeElement !== ical) ical.value = settings.ical_url || "";
       if (state.calendar && !state.calendar.supported) {
@@ -1015,6 +1026,11 @@
 
     $("ical-url").addEventListener("change", (event) => {
       sendUpdate({ settings: { ical_url: event.target.value.trim() || null } });
+    });
+
+    $("sign-name-input").addEventListener("change", (event) => {
+      const name = event.target.value.trim();
+      if (name) sendUpdate({ settings: { sign_name: name } });
     });
 
     function withTimer(partial) {

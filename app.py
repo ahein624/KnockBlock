@@ -29,6 +29,7 @@ from presets import (
 
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 MAX_MESSAGE_LENGTH = 80
+MAX_SIGN_NAME = 40
 MAX_RECENTS = 6
 MAX_REVERT_MINUTES = 12 * 60
 PREVIEW_SCALE = 6
@@ -43,6 +44,7 @@ ONCALL_TTL = 15
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_SETTINGS = {
+    "sign_name": "Knockblock",
     "weather_idle": True,
     "work_start": "08:00",
     "work_end": "18:00",
@@ -206,6 +208,9 @@ def _load_state():
         ttl = settings.get("manual_ttl_minutes")
         if isinstance(ttl, int) and 0 <= ttl <= MAX_REVERT_MINUTES:
             merged["manual_ttl_minutes"] = ttl
+        name = settings.get("sign_name")
+        if isinstance(name, str) and name.strip():
+            merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
         state["settings"] = merged
 
 
@@ -563,6 +568,61 @@ def logout():
     return redirect("/login")
 
 
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    """First-run claim flow: set the password from a phone on the sign's own
+    network. LAN-only while unclaimed — an internet visitor to a fresh sign
+    still can't seize it (same property as the --set-password CLI, which
+    remains the fallback and the only way to *reset* a password)."""
+    if auth.password_set() or not _is_local_request():
+        return redirect("/")
+    error = None
+    if request.method == "POST":
+        form = request.form
+        password = form.get("password", "")
+        sign_name = (form.get("sign_name") or "").strip()[:MAX_SIGN_NAME]
+        units = form.get("units", "f")
+        work_start = form.get("work_start", "08:00")
+        work_end = form.get("work_end", "18:00")
+        days = sorted({
+            int(d) for d in form.getlist("work_days")
+            if d.isdigit() and 0 <= int(d) <= 6
+        })
+        if len(password) < 8:
+            error = "Password needs at least 8 characters"
+        elif password != form.get("confirm", ""):
+            error = "Passwords don't match"
+        elif units not in ("f", "c"):
+            error = "Pick °F or °C"
+        elif not (TIME_RE.match(work_start) and TIME_RE.match(work_end)):
+            error = "Work hours must be HH:MM"
+        else:
+            with lock:
+                if auth.password_set():  # claim race: the first tap won
+                    return redirect("/")
+                auth.set_password(password)
+                settings = state["settings"]
+                if sign_name:
+                    settings["sign_name"] = sign_name
+                settings["units"] = units
+                settings["work_start"] = work_start
+                settings["work_end"] = work_end
+                if days:
+                    settings["work_days"] = days
+                _save_state()
+                _render_current()
+            session.permanent = True
+            session["authed"] = True
+            return render_template(
+                "setup.html", done=True, error=None,
+                api_token=auth.api_token(), settings=state["settings"],
+            )
+    return render_template(
+        "setup.html", done=False, error=error,
+        api_token=None, settings=state["settings"],
+    )
+
+
 @app.route("/api/token", methods=["GET", "POST"])
 def api_token():
     # Session or local only: a leaked token shouldn't be able to mint
@@ -576,11 +636,14 @@ def api_token():
 
 @app.route("/")
 def index():
+    if not auth.password_set() and _is_local_request():
+        return redirect("/setup")
     demo = _demo_active()
     with lock:
         payload = _api_payload(demo=demo)
     return render_template(
         "index.html",
+        sign_name=payload["settings"]["sign_name"],
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
         demo=demo,
@@ -673,6 +736,11 @@ def set_state():
                 if not 0 <= ttl <= MAX_REVERT_MINUTES:
                     return jsonify(error="manual_ttl_minutes out of range"), 400
                 settings["manual_ttl_minutes"] = ttl
+            if "sign_name" in incoming:
+                name = str(incoming["sign_name"] or "").strip()
+                if not name:
+                    return jsonify(error="sign_name can't be empty"), 400
+                settings["sign_name"] = name[:MAX_SIGN_NAME]
             _render_current()
 
         minutes = data.get("revert_minutes")
