@@ -15,3 +15,12 @@ static/*.png
 
 # Uploaded / fetched panel media
 media/
+
+# Dev harness runtime files
+dev/state/
+
+# Self-update progress (written by scripts/update.sh)
+update_status.json
+
+# Status history (written by history.py)
+history-*.jsonl

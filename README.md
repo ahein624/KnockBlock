@@ -3,6 +3,24 @@
 A phone-controlled office status sign. Tap a button on your phone; the status
 instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 
+## Quick start
+
+On a fresh Raspberry Pi with the panel wired up (see [Hardware](#hardware)):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ahein624/KnockBlock/main/install.sh | bash
+```
+
+The installer clones the code, builds the panel driver, and installs the
+`knockblock` systemd service (it may ask you to reboot once for the audio
+change, then re-run). When it finishes, open `http://<pi-ip>:5000` from a
+phone on the same WiFi to **claim your sign**: set a password, name it, and
+you're live. Re-running the installer later is the upgrade path — it never
+touches your password, state, or uploaded media.
+
+Prefer to see every step, or debugging a panel? The full walkthrough is in
+[Manual setup](#setup-step-by-step).
+
 ## Features
 
 - **Status presets** with emoji icons (On a Call, Free, In a Meeting, Do Not
@@ -48,21 +66,35 @@ instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
   (state, preview, countdowns) but every write is refused with a polite
   quip; secrets (calendar URL, location, API token) are redacted and the
   settings sheet is hidden. Logging in normally exits demo mode
+- **Scheduled statuses** — recurring rules like "Lunch, 12:00–13:00,
+  Mon–Fri" the sign follows on its own; presets, the clock, or a custom
+  message, overnight windows included. A manual tap overrides; Auto resumes
+- **Weekly insights** — a "This week" panel with time spent in meetings,
+  calls, and focus, from an append-only local history (three months kept,
+  message text never logged)
+- **First-run claim wizard** — a fresh sign is claimed from a phone on its
+  own WiFi: password, name, work hours, API token. No SSH needed
+- **Self-update** — an "Update sign" button pulls the latest code, restarts,
+  and rolls itself back if the sign doesn't come back up
 - **Priority arbiter** — when several sources are active at once:
-  manual hold → on-call → focus → calendar → idle. Manual presses release
-  after a configurable TTL (default 2h) so a tapped button can't suppress
-  autodetect all day; the Auto button releases a hold early
+  manual hold → on-call → focus → calendar → schedule → idle. Manual
+  presses release after a configurable TTL (default 2h) so a tapped button
+  can't suppress autodetect all day; the Auto button releases a hold early
 
 ## Login & security
 
-The password is set from the shell, never through the web (so an exposed,
-not-yet-configured sign can't be claimed by a stranger):
+A fresh sign is **claimed** from its own network: open `http://<pi-ip>:5000`
+from a phone on the sign's WiFi and the first-run wizard asks for a
+password, a name, and your work hours. The wizard only answers LAN clients
+and only while no password exists, so an internet-exposed unclaimed sign
+still can't be seized by a stranger. From a terminal (also the only way to
+*reset* a forgotten password):
 
 ```bash
 sudo ./venv/bin/python3 app.py --set-password
 ```
 
-This also prints the **API token** used by scripted clients
+Claiming also reveals the **API token** used by scripted clients
 (`--show-token` reprints it; the phone UI shows it too, with a regenerate
 button). Logins get a long-lived session cookie — right for a personal PWA.
 Repeated failed logins back off with a per-IP lockout.
@@ -87,6 +119,30 @@ If you expose the sign to the internet, put it behind HTTPS (a reverse proxy
 like Caddy, or a Cloudflare tunnel) — over plain HTTP the password and token
 travel in the clear. A Tailscale/VPN-only setup avoids the exposure entirely.
 
+## Remote access
+
+The recommended way to reach the sign away from home is **Tailscale** — no
+port forwarding, no reverse proxy, no exposed attack surface:
+
+1. On the Pi: `curl -fsSL https://tailscale.com/install.sh | sh`, then
+   `sudo tailscale up`.
+2. Install the Tailscale app on your phone and sign in to the same tailnet.
+3. Visit `http://<pi-tailscale-name>:5000` (MagicDNS) from anywhere. For
+   HTTPS — which lets the phone use the clipboard API and installs more
+   cleanly as a PWA — run `sudo tailscale serve --bg 5000` and use the
+   `https://…ts.net` URL it prints.
+
+One deliberate quirk: Tailscale addresses live in `100.64.0.0/10`, which is
+*not* a private range, so tailnet clients are asked for the password like
+any other remote visitor. That's the safe default — anyone you share your
+tailnet with shouldn't automatically control your door.
+
+The advanced alternative — a public domain through a reverse proxy or
+Cloudflare tunnel — works with the `public_host` / `untrusted_proxies` keys
+above; that's how the original sign runs. WiFi captive-portal provisioning
+(configuring the Pi's WiFi from the phone) is future work; for now the Pi
+joins WiFi the usual way (Raspberry Pi Imager presets or `nmtui`).
+
 ## API
 
 Everything the UI does goes through JSON endpoints, so you can script it.
@@ -94,17 +150,27 @@ Authenticate with `Authorization: Bearer <token>`, an `X-Api-Token` header,
 or `?token=<token>`:
 
 - `GET /api/state` — what's showing and why (`status`, `source`, `held`),
-  plus brightness, recents, focus/calendar state, settings, weather
+  plus brightness, recents, focus/calendar state, schedules, settings,
+  weather
 - `POST /api/state` — any subset of:
   `{"status": "free" | "on_a_call" | ... | "clock" | "auto"}` (`auto`
   releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
   `{"focus_minutes": 25}` (0 cancels),
   `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
-  `{"settings": {"weather_idle": true, "work_start": "08:00",
-  "work_end": "18:00", "units": "f", "lat": null, "lon": null,
-  "sleep_enabled": true, "sleep_start": "22:00", "sleep_end": "07:00",
-  "ical_url": "https://…", "manual_ttl_minutes": 120}}`
+  `{"settings": {"sign_name": "Knockblock", "weather_idle": true,
+  "work_start": "08:00", "work_end": "18:00", "units": "f", "lat": null,
+  "lon": null, "sleep_enabled": true, "sleep_start": "22:00",
+  "sleep_end": "07:00", "ical_url": "https://…",
+  "manual_ttl_minutes": 120}}`,
+  `{"schedules": [{"label": "Lunch", "status": "custom",
+  "message": {"text": "Back at 1", "color": "orange"}, "start": "12:00",
+  "end": "13:00", "days": [0,1,2,3,4], "enabled": true}]}` — full-list
+  replace; `status` is a preset key, `"clock"`, or `"custom"` (which
+  requires `message`); `start > end` spans midnight; first matching rule
+  wins
+- `GET /api/insights?days=7` — seconds per status per local day plus
+  totals, from the on-device history (max 31 days; blocked in demo mode)
 - `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
   sensor; the status clears itself 15s after the last `true`
 - `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
@@ -114,6 +180,9 @@ or `?token=<token>`:
 - `GET|POST /api/set/<status>` — one-URL change for buttons:
   `/api/set/on_a_call?minutes=30`, `/api/set/focus?minutes=25`,
   `/api/set/dumpster_fire`, `/api/set/auto`
+- `POST /api/update` / `GET /api/update/status` — start the self-updater /
+  watch its progress. Session or LAN only, like `GET|POST /api/token` —
+  a leaked API token can't swap code or read credentials
 - `GET /preview.png` — PNG of what the panel currently shows
 
 ## On-call laptop sensors
@@ -158,15 +227,45 @@ same URLs work from Apple Shortcuts ("Get Contents of URL") or cron.
   power the panel from the Pi's 5V pins — a 64x32 panel at full brightness can
   draw more current than the Pi can safely supply, and both will brown out.
 
+## Updating
+
+Settings → Software → **Update sign** pulls the latest code, restarts the
+service, and health-checks itself — if the sign doesn't come back up it
+rolls back to the version that worked and says so. Under the hood it's
+`scripts/update.sh` run as a transient systemd unit; your password, state,
+history, and uploaded media are untracked files the update never touches.
+Re-running `install.sh` does the same job from a shell.
+
 ## Project layout
 
 - `app.py` — Flask web server; exposes the phone UI and the JSON API
 - `auth.py` — password + API-token auth, backed by `auth.json` (not in git)
 - `matrix.py` — wraps `rpi-rgb-led-matrix` to render a preset (text + colors) to the panel
 - `presets.py` — the status screens (label, text lines, colors) shown as phone buttons
-- `templates/index.html` — the phone UI
+- `history.py` — append-only status history + the insights aggregation
+- `templates/` — the phone UI, login, and first-run claim wizard
+- `install.sh` / `deploy/` — one-command installer and the systemd unit
+- `scripts/update.sh` — the self-updater (fetch, swap, health-check, roll back)
 - `hello_matrix.py` — standalone smoke test, no Flask required
 - `requirements.txt` — Python deps installed via pip (Flask, Pillow)
+- `dev/` — hardware-free dev server (stubbed panel) for UI work
+
+## Development (no hardware needed)
+
+Everything except the physical panel runs on any machine:
+
+```bash
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+./venv/bin/python3 dev/dev_server.py
+```
+
+Open http://127.0.0.1:5099 and log in with `devpassword1`. Runtime files
+live in `dev/state/` (gitignored), so a real sign's `auth.json` and
+`state.json` are never touched. The dev server poses as a public client
+so the login and demo flows are exercisable; see the switches documented
+at the top of `dev/dev_server.py` (`KNOCKBLOCK_DEV_LOCAL`,
+`KNOCKBLOCK_DEV_UNCLAIMED`, `KNOCKBLOCK_DEV_FRESH`).
 
 ## Setup, step by step
 
@@ -309,3 +408,17 @@ Check status and logs:
 sudo systemctl status knockblock
 sudo journalctl -u knockblock -f
 ```
+
+## Future work
+
+- **WiFi captive-portal provisioning** — claim a sign that isn't on WiFi
+  yet, straight from the phone; today the Pi joins WiFi via the Raspberry
+  Pi Imager presets or `nmtui`
+- **Tailnet-as-local option** — an opt-in `trusted_networks` key so tailnet
+  clients skip the password like LAN clients do
+- **Drag-to-reorder schedules** — priority is list order; today it's
+  up-arrows
+
+---
+
+*Practical over decorative.*

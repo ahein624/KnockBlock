@@ -5,6 +5,9 @@ import ipaddress
 import json
 import random
 import re
+import secrets
+import shutil
+import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
@@ -16,6 +19,7 @@ from PIL import Image
 
 import auth
 import calendar_source
+import history
 import media
 import weather
 from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
@@ -29,6 +33,8 @@ from presets import (
 
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 MAX_MESSAGE_LENGTH = 80
+MAX_SIGN_NAME = 40
+MAX_SCHEDULES = 20
 MAX_RECENTS = 6
 MAX_REVERT_MINUTES = 12 * 60
 PREVIEW_SCALE = 6
@@ -43,6 +49,7 @@ ONCALL_TTL = 15
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_SETTINGS = {
+    "sign_name": "Knockblock",
     "weather_idle": True,
     "work_start": "08:00",
     "work_end": "18:00",
@@ -101,6 +108,7 @@ state = {
     "oncall_until": None,
     "brightness": 70,
     "recents": [],
+    "schedules": [],  # recurring rules; see _valid_schedule for the shape
     "settings": dict(DEFAULT_SETTINGS),
 }
 
@@ -116,6 +124,48 @@ def _valid_message(message):
             "color": _valid_color(message.get("color")),
         }
     return None
+
+
+def _valid_schedule(rule):
+    """Normalize one recurring-schedule rule, or None if it's unusable.
+
+    Shape: {"id", "enabled", "label", "status", "message", "start", "end",
+    "days"} — status is a preset key, "clock", or "custom" (which requires
+    a message). start > end means the window spans midnight and belongs to
+    the day it starts on. start == end is rejected rather than meaning
+    "all day" — an always-on rule is just a status.
+    """
+    if not isinstance(rule, dict):
+        return None
+    status = rule.get("status")
+    message = _valid_message(rule.get("message")) if status == "custom" else None
+    if status == "custom":
+        if message is None:
+            return None
+    elif status not in list(PRESETS) + ["clock"]:
+        return None
+    start, end = rule.get("start"), rule.get("end")
+    if not (isinstance(start, str) and TIME_RE.match(start)
+            and isinstance(end, str) and TIME_RE.match(end) and start != end):
+        return None
+    if not isinstance(rule.get("days"), list):
+        return None
+    days = sorted({d for d in rule["days"] if isinstance(d, int) and 0 <= d <= 6})
+    if not days:
+        return None
+    rule_id = rule.get("id")
+    if not (isinstance(rule_id, str) and re.fullmatch(r"[0-9a-f]{8}", rule_id)):
+        rule_id = secrets.token_hex(4)
+    return {
+        "id": rule_id,
+        "enabled": bool(rule.get("enabled", True)),
+        "label": str(rule.get("label") or "").strip()[:MAX_SIGN_NAME],
+        "status": status,
+        "message": message,
+        "start": start,
+        "end": end,
+        "days": days,
+    }
 
 
 def _load_state():
@@ -182,6 +232,11 @@ def _load_state():
             for entry in recents
             if isinstance(entry, dict) and entry.get("text")
         ][:MAX_RECENTS]
+    schedules = saved.get("schedules")
+    if isinstance(schedules, list):
+        rules = [_valid_schedule(rule) for rule in schedules]
+        state["schedules"] = [rule for rule in rules if rule][:MAX_SCHEDULES]
+
     settings = saved.get("settings")
     if isinstance(settings, dict):
         merged = dict(DEFAULT_SETTINGS)
@@ -206,6 +261,9 @@ def _load_state():
         ttl = settings.get("manual_ttl_minutes")
         if isinstance(ttl, int) and 0 <= ttl <= MAX_REVERT_MINUTES:
             merged["manual_ttl_minutes"] = ttl
+        name = settings.get("sign_name")
+        if isinstance(name, str) and name.strip():
+            merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
         state["settings"] = merged
 
 
@@ -230,9 +288,42 @@ def _in_work_hours(now=None):
     return _in_window(settings["work_start"], settings["work_end"], now)
 
 
+def _active_schedule(now=None):
+    """First enabled rule whose window covers now — list order is priority.
+
+    An overnight window (start > end) belongs to the day it starts on: a
+    Mon 22:00–02:00 rule matches Monday evening and Tuesday morning."""
+    now = now or datetime.now()
+    current = now.strftime("%H:%M")
+    weekday = now.weekday()
+    yesterday = (weekday - 1) % 7
+    for rule in state["schedules"]:
+        if not rule["enabled"]:
+            continue
+        if rule["start"] <= rule["end"]:
+            if weekday in rule["days"] and rule["start"] <= current < rule["end"]:
+                return rule
+        else:
+            if weekday in rule["days"] and current >= rule["start"]:
+                return rule
+            if yesterday in rule["days"] and current < rule["end"]:
+                return rule
+    return None
+
+
+def _schedule_end_ts(rule, now_ts):
+    """Epoch when the currently-active rule's window closes."""
+    now = datetime.fromtimestamp(now_ts)
+    hour, minute = map(int, rule["end"].split(":"))
+    end = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if end <= now:  # overnight window still running: it closes tomorrow
+        end += timedelta(days=1)
+    return end.timestamp()
+
+
 def _arbitrate(now):
     """Decide what the sign shows. Highest-priority active source wins:
-    manual hold → on-call → focus timer → calendar → idle.
+    manual hold → on-call → focus timer → calendar → schedule → idle.
 
     Returns (source, status, message, countdown_until). Expired holds and
     timers are cleared as a side effect, so callers must hold the lock.
@@ -254,6 +345,9 @@ def _arbitrate(now):
         return "focus", "focus", None, focus["until"]
     if calendar_source.current(calendar_events, now):
         return "calendar", "in_a_meeting", None, None
+    rule = _active_schedule(datetime.fromtimestamp(now))
+    if rule:
+        return "schedule", rule["status"], rule["message"], _schedule_end_ts(rule, now)
     return "idle", DEFAULT_PRESET, None, None
 
 
@@ -303,11 +397,26 @@ def _focus_countdown(now):
     return f"{left // 60}:{left % 60:02d}"
 
 
+_last_logged = None
+
+
+def _record_transition(source, status):
+    """One history line per arbitration outcome change (caller holds lock)."""
+    global _last_logged
+    if (source, status) != _last_logged:
+        _last_logged = (source, status)
+        try:
+            history.append(source, status)
+        except OSError:
+            pass  # a full SD card shouldn't take down rendering
+
+
 def _render_current(force=False):
     """Render whatever should be on the panel now; skips no-op repaints."""
     global render_signature
     now_dt = datetime.now()
     source, status, message, _ = _arbitrate(time.time())
+    _record_transition(source, status)
     if _sleeping(source, status, now_dt):
         signature = ("sleep",)
     elif status == "media":
@@ -428,6 +537,11 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        # Spectators don't get the schedule list (labels are personal).
+        "schedules": [] if demo else state["schedules"],
+        "schedule_label": (
+            (_active_schedule() or {}).get("label") if source == "schedule" else None
+        ),
         # Spectators don't get the secret calendar URL or the location.
         "settings": (
             {**state["settings"], "ical_url": None, "lat": None, "lon": None}
@@ -563,6 +677,61 @@ def logout():
     return redirect("/login")
 
 
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    """First-run claim flow: set the password from a phone on the sign's own
+    network. LAN-only while unclaimed — an internet visitor to a fresh sign
+    still can't seize it (same property as the --set-password CLI, which
+    remains the fallback and the only way to *reset* a password)."""
+    if auth.password_set() or not _is_local_request():
+        return redirect("/")
+    error = None
+    if request.method == "POST":
+        form = request.form
+        password = form.get("password", "")
+        sign_name = (form.get("sign_name") or "").strip()[:MAX_SIGN_NAME]
+        units = form.get("units", "f")
+        work_start = form.get("work_start", "08:00")
+        work_end = form.get("work_end", "18:00")
+        days = sorted({
+            int(d) for d in form.getlist("work_days")
+            if d.isdigit() and 0 <= int(d) <= 6
+        })
+        if len(password) < 8:
+            error = "Password needs at least 8 characters"
+        elif password != form.get("confirm", ""):
+            error = "Passwords don't match"
+        elif units not in ("f", "c"):
+            error = "Pick °F or °C"
+        elif not (TIME_RE.match(work_start) and TIME_RE.match(work_end)):
+            error = "Work hours must be HH:MM"
+        else:
+            with lock:
+                if auth.password_set():  # claim race: the first tap won
+                    return redirect("/")
+                auth.set_password(password)
+                settings = state["settings"]
+                if sign_name:
+                    settings["sign_name"] = sign_name
+                settings["units"] = units
+                settings["work_start"] = work_start
+                settings["work_end"] = work_end
+                if days:
+                    settings["work_days"] = days
+                _save_state()
+                _render_current()
+            session.permanent = True
+            session["authed"] = True
+            return render_template(
+                "setup.html", done=True, error=None,
+                api_token=auth.api_token(), settings=state["settings"],
+            )
+    return render_template(
+        "setup.html", done=False, error=error,
+        api_token=None, settings=state["settings"],
+    )
+
+
 @app.route("/api/token", methods=["GET", "POST"])
 def api_token():
     # Session or local only: a leaked token shouldn't be able to mint
@@ -574,13 +743,67 @@ def api_token():
     return jsonify(token=auth.api_token())
 
 
+UPDATE_STATUS_FILE = Path(__file__).resolve().parent / "update_status.json"
+UPDATE_SCRIPT = Path(__file__).resolve().parent / "scripts" / "update.sh"
+
+
+def _app_version():
+    try:
+        return subprocess.check_output(
+            ["git", "describe", "--tags", "--always"],
+            cwd=Path(__file__).resolve().parent, text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+APP_VERSION = _app_version()  # code can't change without a restart
+
+
+@app.route("/api/update", methods=["POST"])
+def start_update():
+    # Session or local only, like /api/token: a leaked API token must not
+    # be able to trigger code swaps on the sign.
+    if not (session.get("authed") or _is_local_request()):
+        return jsonify(error="unauthorized"), 401
+    repo = Path(__file__).resolve().parent
+    if not (repo / ".git").exists():
+        return jsonify(error="this install isn't a git clone — reinstall with install.sh"), 400
+    # systemd-run detaches the updater from this process, so it survives
+    # the service restart it performs. Outside systemd (dev), plain Popen.
+    if shutil.which("systemd-run"):
+        command = ["systemd-run", "--unit", "knockblock-update", "--collect", str(UPDATE_SCRIPT)]
+    else:
+        command = [str(UPDATE_SCRIPT)]
+    try:
+        subprocess.Popen(command, cwd=repo, start_new_session=True)
+    except OSError as exc:
+        return jsonify(error=f"couldn't start the updater: {exc}"), 500
+    return jsonify(started=True), 202
+
+
+@app.route("/api/update/status")
+def update_status():
+    if not (session.get("authed") or _is_local_request()):
+        return jsonify(error="unauthorized"), 401
+    try:
+        status = json.loads(UPDATE_STATUS_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        status = None
+    return jsonify(version=APP_VERSION, update=status)
+
+
 @app.route("/")
 def index():
+    if not auth.password_set() and _is_local_request():
+        return redirect("/setup")
     demo = _demo_active()
     with lock:
         payload = _api_payload(demo=demo)
     return render_template(
         "index.html",
+        sign_name=payload["settings"]["sign_name"],
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
         demo=demo,
@@ -612,6 +835,17 @@ def preview():
 def get_state():
     with lock:
         return jsonify(_api_payload(demo=_demo_active()))
+
+
+@app.route("/api/insights")
+def insights():
+    # Not on the demo allowlist in _require_auth — spectators see the live
+    # sign, not a week of the owner's working patterns.
+    try:
+        days = min(31, max(1, int(request.args.get("days", 7))))
+    except (TypeError, ValueError):
+        days = 7
+    return jsonify(history.aggregate(days))
 
 
 @app.route("/api/state", methods=["POST"])
@@ -673,6 +907,24 @@ def set_state():
                 if not 0 <= ttl <= MAX_REVERT_MINUTES:
                     return jsonify(error="manual_ttl_minutes out of range"), 400
                 settings["manual_ttl_minutes"] = ttl
+            if "sign_name" in incoming:
+                name = str(incoming["sign_name"] or "").strip()
+                if not name:
+                    return jsonify(error="sign_name can't be empty"), 400
+                settings["sign_name"] = name[:MAX_SIGN_NAME]
+            _render_current()
+
+        if "schedules" in data:
+            incoming = data["schedules"]
+            if not isinstance(incoming, list) or len(incoming) > MAX_SCHEDULES:
+                return jsonify(error=f"schedules must be a list of at most {MAX_SCHEDULES} rules"), 400
+            validated = []
+            for index, rule in enumerate(incoming):
+                valid = _valid_schedule(rule)
+                if valid is None:
+                    return jsonify(error=f"schedule rule {index + 1} is invalid"), 400
+                validated.append(valid)
+            state["schedules"] = validated  # full-list replace, like settings
             _render_current()
 
         minutes = data.get("revert_minutes")

@@ -91,6 +91,8 @@
     color: var(--orange);
   }
   .setup { font-size: 14px; color: var(--ink-soft); line-height: 1.5; margin: 0; }
+  details summary { cursor: pointer; }
+  details pre { margin-top: 8px; }
   .demo-link {
     text-align: center;
     font: 400 12px var(--font-body);
@@ -119,9 +121,13 @@
   <div class="card">
     <h1 class="wordmark"><span class="ah">AH.</span><span>Knockblock</span></h1>
     {% if setup_needed %}
-    <p class="setup">No password has been set yet. On the Pi, run:</p>
-    <pre>sudo ./venv/bin/python3 app.py --set-password</pre>
-    <p class="setup">then reload this page.</p>
+    <p class="setup">This sign hasn't been claimed yet. Join the same WiFi
+      network as the sign, then open this page again to claim it and set
+      a password.</p>
+    <details>
+      <summary class="setup">Claiming from a terminal instead</summary>
+      <pre>sudo ./venv/bin/python3 app.py --set-password</pre>
+    </details>
     {% else %}
     <form method="post">
       <input type="password" name="password" placeholder="Password" autofocus

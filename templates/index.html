@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Bitter:wght@500;600;700&display=swap" rel="stylesheet">
-<title>AH.knockblock</title>
+<title>AH. {{ sign_name }}</title>
 <style>
   /* AH.knockblock — warm field style; orange marks what's active right now. */
   :root {
@@ -316,6 +316,51 @@
     color: var(--ink-faint);
   }
 
+  /* ---- insights ---- */
+  #insights summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #insights summary::-webkit-details-marker { display: none; }
+  .insights-sum {
+    font: 400 12px var(--font-body);
+    color: var(--ink-faint);
+    text-align: right;
+  }
+  .insights-bars { display: grid; gap: 6px; padding-top: 10px; }
+  .iday { display: flex; align-items: center; gap: 8px; }
+  .iday .dlbl { width: 34px; font: 400 11px var(--font-body); color: var(--ink-faint); }
+  .iday .track {
+    flex: 1;
+    height: 14px;
+    display: flex;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .iseg { height: 100%; flex-shrink: 0; }
+  .ilegend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+    font: 400 11px var(--font-body);
+    color: var(--ink-soft);
+  }
+  .ilegend .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
   /* ---- footer ---- */
   .footbar {
     display: flex;
@@ -463,6 +508,50 @@
   .text-input::placeholder { color: var(--ink-faint); }
   .text-input:focus { outline: 1px solid var(--tan); outline-offset: -1px; }
 
+  /* ---- schedule editor ---- */
+  .sched-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+  }
+  .sched-row.off .sched-name, .sched-row.off .sched-meta { opacity: 0.5; }
+  .sched-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .sched-name {
+    font: 600 14px var(--font-body);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sched-meta { font: 400 12px var(--font-body); color: var(--ink-faint); }
+  .mini-btn {
+    padding: 6px 9px;
+    font: 600 12px var(--font-body);
+    color: var(--ink-soft);
+    background: none;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .mini-btn:disabled { opacity: 0.3; }
+  .dayrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .daychip input { display: none; }
+  .daychip span {
+    display: block;
+    padding: 6px 10px;
+    font: 500 12px var(--font-body);
+    color: var(--tan);
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .daychip input:checked + span { background: var(--tan); border-color: var(--tan); color: var(--bg); }
+  select.text-input { appearance: none; -webkit-appearance: none; }
+
   .token-row { display: flex; align-items: center; gap: 8px; }
   .token-row code {
     flex: 1;
@@ -532,7 +621,7 @@
 </head>
 <body>
   <header>
-    <h1 class="wordmark"><span class="ah">AH.</span><span>Knockblock</span></h1>
+    <h1 class="wordmark"><span class="ah">AH.</span><span id="sign-name">{{ sign_name }}</span></h1>
     {% if not demo %}<button class="cfg" id="gear" aria-label="Settings">SETTINGS</button>{% endif %}
   </header>
   <main>
@@ -629,6 +718,18 @@
         and TTL apply, and auto clears it.</p>
     </section>
 
+    {% if not demo %}
+    <section class="fieldset">
+      <details id="insights">
+        <summary>
+          <h2>This week</h2>
+          <span class="insights-sum" id="insights-sum">Tap for the breakdown</span>
+        </summary>
+        <div class="insights-bars" id="insights-bars"></div>
+      </details>
+    </section>
+    {% endif %}
+
     <section class="footbar">
       <span>KNOCKBLOCK</span>
       <span>PRACTICAL OVER DECORATIVE</span>
@@ -639,6 +740,12 @@
   <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="grabber"></div>
     <h2>Settings</h2>
+
+    <div class="group">
+      <h3>Sign name</h3>
+      <input id="sign-name-input" type="text" class="text-input" maxlength="40"
+             placeholder="Knockblock" autocomplete="off">
+    </div>
 
     <div class="group">
       <h3>Brightness <span id="bright-val"></span></h3>
@@ -688,6 +795,43 @@
     </div>
 
     <div class="group">
+      <h3>Scheduled statuses</h3>
+      <div class="group" id="sched-list"></div>
+      <div class="compose-row">
+        <input id="sched-label" type="text" class="text-input" maxlength="40"
+               placeholder="Label (e.g. Lunch)" autocomplete="off" style="flex: 1;">
+        <select id="sched-status" class="text-input" style="flex: 1;">
+          {% for key, preset in presets.items() %}
+          <option value="{{ key }}">{{ preset.label }}</option>
+          {% endfor %}
+          <option value="clock">Clock &amp; weather</option>
+          <option value="custom">Custom message…</option>
+        </select>
+      </div>
+      <input id="sched-msg" type="text" class="text-input" maxlength="80"
+             placeholder="Message to show" autocomplete="off" hidden>
+      <div class="hours-row">
+        <input type="time" id="sched-start" value="12:00">
+        <span class="sep">to</span>
+        <input type="time" id="sched-end" value="13:00">
+      </div>
+      <div class="dayrow" id="sched-days">
+        {% for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+        <label class="daychip">
+          <input type="checkbox" value="{{ loop.index0 }}" {% if loop.index0 < 5 %}checked{% endif %}>
+          <span>{{ day }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <button class="token-btn" id="sched-save">Add schedule</button>
+      <p class="hint">
+        The sign follows these on its own — calls, focus timers, and the
+        calendar still outrank them, and a manual tap overrides. When two
+        overlap, the top rule wins.
+      </p>
+    </div>
+
+    <div class="group">
       <h3>Calendar</h3>
       <input id="ical-url" type="url" class="text-input" placeholder="Secret iCal address" autocomplete="off">
       <p class="hint" id="ical-hint">
@@ -724,6 +868,16 @@
         <code>/api/set/on_a_call?minutes=30&amp;token=…</code>, or send the
         token as an <code>Authorization: Bearer</code> header to any endpoint.
       </p>
+    </div>
+
+    <div class="group">
+      <h3>Software</h3>
+      <div class="setting-row">
+        <span id="version-lbl"></span>
+        <button class="token-btn" id="update-btn">Update sign</button>
+      </div>
+      <p class="hint" id="update-hint">Pulls the latest code and restarts;
+        rolls back by itself if the sign doesn't come back up.</p>
     </div>
 
     <a class="logout" href="/logout">Log out</a>
@@ -808,9 +962,13 @@
         label += " · " + SOURCE_HINTS[state.source];
       }
       // The badge doubles as the release-to-auto control; so does the
-      // "Hold it there" subtitle while something is held.
-      $("held-badge").hidden = !state.held;
-      $("held-txt").textContent = label + " · held";
+      // "Hold it there" subtitle while something is held. A scheduled
+      // status borrows the badge as a read-only "why" indicator.
+      const scheduled = state.source === "schedule";
+      $("held-badge").hidden = !(state.held || scheduled);
+      $("held-txt").textContent = state.held
+        ? label + " · held"
+        : (state.schedule_label || label) + " · scheduled";
       const holdSub = $("hold-sub");
       holdSub.textContent = state.held ? "Back to auto now" : "Then back to auto";
       holdSub.classList.toggle("act", !!state.held);
@@ -843,6 +1001,11 @@
       document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
         c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
 
+      const nameInput = $("sign-name-input");
+      if (document.activeElement !== nameInput) nameInput.value = settings.sign_name || "";
+      $("sign-name").textContent = settings.sign_name || "Knockblock";
+      document.title = "AH. " + (settings.sign_name || "Knockblock");
+
       const ical = $("ical-url");
       if (document.activeElement !== ical) ical.value = settings.ical_url || "";
       if (state.calendar && !state.calendar.supported) {
@@ -855,8 +1018,123 @@
       $("bright-val").textContent = bright.value + "%";
 
       renderRecents();
+      renderSchedules();
       renderCountdown();
     }
+
+    /* ---- schedule editor ---- */
+    const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    function schedName(rule) {
+      if (rule.label) return rule.label;
+      if (rule.status === "custom") return rule.message.text;
+      return LABELS[rule.status] || "Clock & weather";
+    }
+
+    function schedMeta(rule) {
+      const days = rule.days.length === 7
+        ? "every day"
+        : rule.days.map((d) => DAY_NAMES[d]).join(" ");
+      return rule.start + "–" + rule.end + " · " + days;
+    }
+
+    function sendSchedules(list) {
+      sendUpdate({ schedules: list });
+    }
+
+    function renderSchedules() {
+      const box = $("sched-list");
+      const list = state.schedules || [];
+      const sig = JSON.stringify(list);
+      if (box.dataset.sig === sig) return;
+      box.dataset.sig = sig;
+      box.innerHTML = "";
+      list.forEach((rule, i) => {
+        const row = document.createElement("div");
+        row.className = "sched-row" + (rule.enabled ? "" : " off");
+
+        const info = document.createElement("div");
+        info.className = "sched-info";
+        const name = document.createElement("span");
+        name.className = "sched-name";
+        name.textContent = schedName(rule);
+        const meta = document.createElement("span");
+        meta.className = "sched-meta";
+        meta.textContent = schedMeta(rule);
+        info.append(name, meta);
+
+        const up = document.createElement("button");
+        up.className = "mini-btn";
+        up.textContent = "↑";
+        up.title = "Higher priority";
+        up.disabled = i === 0;
+        up.addEventListener("click", () => {
+          buzz();
+          const next = list.slice();
+          [next[i - 1], next[i]] = [next[i], next[i - 1]];
+          sendSchedules(next);
+        });
+
+        const sw = document.createElement("label");
+        sw.className = "switch";
+        const swInput = document.createElement("input");
+        swInput.type = "checkbox";
+        swInput.checked = rule.enabled;
+        swInput.addEventListener("change", () => {
+          buzz();
+          const next = list.map((r, j) => j === i ? { ...r, enabled: swInput.checked } : r);
+          sendSchedules(next);
+        });
+        const track = document.createElement("span");
+        track.className = "track";
+        sw.append(swInput, track);
+
+        const del = document.createElement("button");
+        del.className = "mini-btn";
+        del.textContent = "✕";
+        del.title = "Delete";
+        del.addEventListener("click", () => {
+          buzz();
+          sendSchedules(list.filter((_, j) => j !== i));
+        });
+
+        row.append(info, up, sw, del);
+        box.appendChild(row);
+      });
+    }
+
+    $("sched-status").addEventListener("change", (event) => {
+      $("sched-msg").hidden = event.target.value !== "custom";
+    });
+
+    $("sched-save").addEventListener("click", () => {
+      const status = $("sched-status").value;
+      const rule = {
+        enabled: true,
+        label: $("sched-label").value.trim(),
+        status,
+        message: status === "custom"
+          ? { text: $("sched-msg").value.trim(), color: "blue" }
+          : null,
+        start: $("sched-start").value,
+        end: $("sched-end").value,
+        days: [...document.querySelectorAll("#sched-days input:checked")]
+          .map((c) => Number(c.value)),
+      };
+      if (status === "custom" && !rule.message.text) {
+        showToast("Type the message to show", true);
+        return;
+      }
+      if (!rule.days.length) { showToast("Pick at least one day", true); return; }
+      if (!rule.start || !rule.end || rule.start === rule.end) {
+        showToast("Start and end need to differ", true);
+        return;
+      }
+      buzz();
+      sendSchedules([...(state.schedules || []), rule]);
+      $("sched-label").value = "";
+      $("sched-msg").value = "";
+    });
 
     function renderCountdown() {
       if (!state.revert_at) { countdown.textContent = ""; return; }
@@ -1017,6 +1295,11 @@
       sendUpdate({ settings: { ical_url: event.target.value.trim() || null } });
     });
 
+    $("sign-name-input").addEventListener("change", (event) => {
+      const name = event.target.value.trim();
+      if (name) sendUpdate({ settings: { sign_name: name } });
+    });
+
     function withTimer(partial) {
       if (timerMinutes > 0) {
         partial.revert_minutes = timerMinutes;
@@ -1107,6 +1390,146 @@
         showToast("New token generated");
       } catch (err) {
         showToast(err.message || "Couldn't reach the sign", true);
+      }
+    });
+
+    /* ---- weekly insights ---- */
+    const INSIGHT_COLORS = {
+      on_a_call: "#e5484d",
+      in_a_meeting: "#e8912d",
+      do_not_disturb: "#8e4ec6",
+      focus: "#6366f1",
+      custom: "#C9B48F",
+      media: "#d6409f",
+      dumpster_fire: "#E85D26",
+    };
+    const INSIGHT_NAMES = {
+      on_a_call: "calls",
+      in_a_meeting: "meetings",
+      do_not_disturb: "do not disturb",
+      focus: "focus",
+      custom: "messages",
+      media: "GIFs",
+      dumpster_fire: "fires",
+    };
+    const insightsBox = $("insights");
+
+    function fmtHours(seconds) {
+      const h = seconds / 3600;
+      if (h >= 10) return Math.round(h) + "h";
+      if (h >= 1) return (Math.round(h * 10) / 10) + "h";
+      return Math.max(1, Math.round(seconds / 60)) + "m";
+    }
+
+    async function loadInsights() {
+      let body;
+      try {
+        const res = await fetch("/api/insights?days=7");
+        if (!res.ok) throw new Error();
+        body = await res.json();
+      } catch (err) {
+        $("insights-sum").textContent = "Couldn't load";
+        return;
+      }
+      const headline = Object.entries(body.totals)
+        .filter(([status, s]) => INSIGHT_COLORS[status] && s >= 60)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([status, s]) => fmtHours(s) + " " + INSIGHT_NAMES[status]);
+      $("insights-sum").textContent = headline.length
+        ? headline.join(" · ")
+        : "Nothing tracked yet";
+
+      const bars = $("insights-bars");
+      bars.innerHTML = "";
+      const seen = new Set();
+      body.days.forEach((day) => {
+        const row = document.createElement("div");
+        row.className = "iday";
+        const lbl = document.createElement("span");
+        lbl.className = "dlbl";
+        lbl.textContent = new Date(day.date + "T12:00:00")
+          .toLocaleDateString(undefined, { weekday: "short" });
+        const track = document.createElement("div");
+        track.className = "track";
+        Object.entries(day.seconds).forEach(([status, s]) => {
+          if (!INSIGHT_COLORS[status]) return; // free/clock/idle stay blank
+          seen.add(status);
+          const seg = document.createElement("span");
+          seg.className = "iseg";
+          seg.style.background = INSIGHT_COLORS[status];
+          seg.style.width = (s / 86400 * 100).toFixed(2) + "%";
+          seg.title = INSIGHT_NAMES[status] + " " + fmtHours(s);
+          track.appendChild(seg);
+        });
+        row.append(lbl, track);
+        bars.appendChild(row);
+      });
+      const legend = document.createElement("div");
+      legend.className = "ilegend";
+      seen.forEach((status) => {
+        const item = document.createElement("span");
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dot.style.background = INSIGHT_COLORS[status];
+        item.append(dot, INSIGHT_NAMES[status]);
+        legend.appendChild(item);
+      });
+      if (seen.size) bars.appendChild(legend);
+    }
+    if (insightsBox) {
+      insightsBox.addEventListener("toggle", () => {
+        if (insightsBox.open) loadInsights();
+      });
+    }
+
+    /* ---- self-update ---- */
+    const UPDATE_PHRASES = {
+      fetching: "Checking for updates…",
+      installing: "Installing…",
+      restarting: "Restarting the sign…",
+      done: "Up to date.",
+      failed: "Update failed",
+      rolled_back: "Update didn't take — rolled back to the previous version.",
+    };
+    let updatePoll = null;
+    async function pollUpdate() {
+      try {
+        const res = await fetch("/api/update/status");
+        if (!res.ok) return; // 401 shouldn't happen; transient errors retried
+        const body = await res.json();
+        $("version-lbl").textContent = body.version;
+        const u = body.update;
+        if (!u) return;
+        let text = UPDATE_PHRASES[u.phase] || u.phase;
+        if (u.error) text += " — " + u.error;
+        $("update-hint").textContent = text;
+        if (u.phase === "done" || u.phase === "failed" || u.phase === "rolled_back") {
+          clearInterval(updatePoll);
+          updatePoll = null;
+          $("update-btn").disabled = false;
+          if (u.phase === "done" && u.to && u.from !== u.to) {
+            $("update-hint").textContent = "Updated — reload the app to get the new version.";
+          }
+        }
+      } catch (err) {
+        // Expected while the service restarts mid-update; keep polling.
+      }
+    }
+    pollUpdate();
+    $("update-btn").addEventListener("click", async () => {
+      buzz();
+      $("update-btn").disabled = true;
+      $("update-hint").textContent = "Starting…";
+      try {
+        const res = await fetch("/api/update", { method: "POST" });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Request failed");
+        if (!updatePoll) updatePoll = setInterval(pollUpdate, 2000);
+      } catch (err) {
+        $("update-btn").disabled = false;
+        $("update-hint").textContent = "";
+        showToast(err.message || "Couldn't start the update", true);
       }
     });
 
