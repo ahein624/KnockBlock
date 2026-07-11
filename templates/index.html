@@ -316,6 +316,49 @@
     color: var(--ink-faint);
   }
 
+  /* ---- screen designer ---- */
+  .dz-wrap { touch-action: none; }
+  #dz-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .dz-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dz-tools .tool.sel { border-color: var(--tan); color: var(--tan); }
+  .dz-saves { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dz-saves:empty { display: none; }
+  .dz-slot {
+    position: relative;
+    width: 72px;
+    height: 36px;
+    padding: 0;
+    background: #000;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .dz-slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .dz-slot .rm {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0 4px 2px;
+    font: 600 11px var(--font-body);
+    color: var(--ink);
+    background: rgba(34, 26, 18, 0.8);
+    border: none;
+    border-radius: 0 0 0 4px;
+  }
+  .upload-btn.design { border-style: solid; color: var(--tan); }
+
   /* ---- insights ---- */
   #insights summary {
     display: flex;
@@ -713,6 +756,7 @@
         <span class="fire-sub">DUMPSTER FIRE MODE</span>
       </button>
       <button class="upload-btn" id="upload-btn">Upload an image or GIF</button>
+      <button class="upload-btn design" id="design-btn">Design a screen</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
       <p class="note">Shows on the panel as a manual hold — the hold timer
         and TTL apply, and auto clears it.</p>
@@ -737,6 +781,31 @@
   </main>
 
   <div class="sheet-backdrop" id="sheet-backdrop"></div>
+
+  <section class="sheet" id="designer" role="dialog" aria-modal="true" aria-label="Screen designer">
+    <div class="grabber"></div>
+    <h2>Screen designer</h2>
+    <div class="screen dz-wrap">
+      <canvas id="dz-canvas" width="64" height="32"></canvas>
+    </div>
+    <div class="inkrow" id="dz-palette"></div>
+    <div class="dz-tools">
+      <button class="mini-btn tool sel" data-tool="draw">Draw</button>
+      <button class="mini-btn tool" data-tool="fill">Fill</button>
+      <button class="mini-btn tool" data-tool="erase">Erase</button>
+      <button class="mini-btn" id="dz-undo">Undo</button>
+      <button class="mini-btn" id="dz-copy" title="Start from what's showing">Copy sign</button>
+      <button class="mini-btn" id="dz-clear">Clear</button>
+    </div>
+    <div class="compose-row">
+      <button class="field-btn" id="dz-send" style="flex: 1; justify-content: center;">Send to sign</button>
+      <button class="mini-btn" id="dz-save" style="padding: 10px 14px;">Save</button>
+    </div>
+    <div class="dz-saves" id="dz-saves"></div>
+    <p class="hint">Sends to the panel as a manual hold, like an upload —
+      the hold timer and TTL apply. Saved designs stay on this device.</p>
+  </section>
+
   <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="grabber"></div>
     <h2>Settings</h2>
@@ -1254,8 +1323,191 @@
       document.body.classList.remove("locked");
     }
     if ($("gear")) $("gear").addEventListener("click", () => { buzz(); openSheet(); });
-    backdrop.addEventListener("click", closeSheet);
+    backdrop.addEventListener("click", () => { closeSheet(); closeDesigner(); });
     sheet.querySelector(".grabber").addEventListener("click", closeSheet);
+
+    /* ---- screen designer ---- */
+    const designer = $("designer");
+    const dz = $("dz-canvas");
+    const dctx = dz.getContext("2d", { willReadFrequently: true });
+    dctx.fillStyle = "#000000";
+    dctx.fillRect(0, 0, 64, 32);
+    const DZ_COLORS = ["#FFFFFF", "#E5484D", "#E8912D", "#F5D90A", "#30A46C",
+                       "#22C9C9", "#3B82F6", "#8E4EC6", "#D6409F", "#000000"];
+    let dzColor = DZ_COLORS[0];
+    let dzTool = "draw";
+    const dzUndo = [];
+
+    DZ_COLORS.forEach((color, i) => {
+      const label = document.createElement("label");
+      label.className = "swatch";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "dz-color";
+      input.checked = i === 0;
+      input.addEventListener("change", () => { dzColor = color; });
+      const span = document.createElement("span");
+      span.style.setProperty("--c", color);
+      if (color === "#000000") span.style.outline = "1px solid var(--edge)";
+      label.append(input, span);
+      $("dz-palette").appendChild(label);
+    });
+
+    function openDesigner() {
+      designer.classList.add("open");
+      backdrop.classList.add("open");
+      document.body.classList.add("locked");
+    }
+    function closeDesigner() {
+      designer.classList.remove("open");
+      backdrop.classList.remove("open");
+      document.body.classList.remove("locked");
+    }
+    $("design-btn").addEventListener("click", () => { buzz(); openDesigner(); });
+    designer.querySelector(".grabber").addEventListener("click", closeDesigner);
+
+    function dzSnapshot() {
+      dzUndo.push(dctx.getImageData(0, 0, 64, 32));
+      if (dzUndo.length > 25) dzUndo.shift();
+    }
+    $("dz-undo").addEventListener("click", () => {
+      const prev = dzUndo.pop();
+      if (prev) dctx.putImageData(prev, 0, 0);
+    });
+    $("dz-clear").addEventListener("click", () => {
+      dzSnapshot();
+      dctx.fillStyle = "#000000";
+      dctx.fillRect(0, 0, 64, 32);
+    });
+    $("dz-copy").addEventListener("click", () => {
+      const img = new Image();
+      img.onload = () => {
+        dzSnapshot();
+        dctx.imageSmoothingEnabled = false;
+        dctx.drawImage(img, 0, 0, 64, 32);
+      };
+      img.src = "/preview.png?t=" + Date.now();
+    });
+
+    document.querySelectorAll(".dz-tools .tool").forEach((b) => {
+      b.addEventListener("click", () => {
+        dzTool = b.dataset.tool;
+        document.querySelectorAll(".dz-tools .tool").forEach((t) =>
+          t.classList.toggle("sel", t === b));
+      });
+    });
+
+    function dzPos(event) {
+      const r = dz.getBoundingClientRect();
+      return [
+        Math.floor((event.clientX - r.left) / r.width * 64),
+        Math.floor((event.clientY - r.top) / r.height * 32),
+      ];
+    }
+
+    function dzFill(x, y) {
+      const data = dctx.getImageData(0, 0, 64, 32);
+      const px = data.data;
+      const at = (x, y) => (y * 64 + x) * 4;
+      const target = px.slice(at(x, y), at(x, y) + 3).join(",");
+      const hex = dzColor;
+      const [nr, ng, nb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      if (target === [nr, ng, nb].join(",")) return;
+      const queue = [[x, y]];
+      while (queue.length) {
+        const [cx, cy] = queue.pop();
+        if (cx < 0 || cy < 0 || cx > 63 || cy > 31) continue;
+        const o = at(cx, cy);
+        if (px.slice(o, o + 3).join(",") !== target) continue;
+        px[o] = nr; px[o + 1] = ng; px[o + 2] = nb; px[o + 3] = 255;
+        queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+      }
+      dctx.putImageData(data, 0, 0);
+    }
+
+    function dzPaint(event) {
+      const [x, y] = dzPos(event);
+      if (x < 0 || y < 0 || x > 63 || y > 31) return;
+      dctx.fillStyle = dzTool === "erase" ? "#000000" : dzColor;
+      dctx.fillRect(x, y, 1, 1);
+    }
+
+    dz.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      dzSnapshot();
+      dz.setPointerCapture(event.pointerId);
+      if (dzTool === "fill") {
+        const [x, y] = dzPos(event);
+        if (x >= 0 && y >= 0 && x < 64 && y < 32) dzFill(x, y);
+      } else {
+        dzPaint(event);
+      }
+    });
+    dz.addEventListener("pointermove", (event) => {
+      if (event.buttons && dzTool !== "fill") dzPaint(event);
+    });
+
+    /* saved designs: this device only */
+    function dzSaved() {
+      try { return JSON.parse(localStorage.getItem("kb-designs")) || []; }
+      catch (err) { return []; }
+    }
+    function renderDzSaves() {
+      const box = $("dz-saves");
+      box.innerHTML = "";
+      dzSaved().forEach((url, i) => {
+        const slot = document.createElement("button");
+        slot.className = "dz-slot";
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Saved design " + (i + 1);
+        slot.appendChild(img);
+        slot.addEventListener("click", () => {
+          buzz();
+          const pic = new Image();
+          pic.onload = () => { dzSnapshot(); dctx.drawImage(pic, 0, 0); };
+          pic.src = url;
+        });
+        const rm = document.createElement("button");
+        rm.className = "rm";
+        rm.textContent = "✕";
+        rm.setAttribute("aria-label", "Delete saved design");
+        rm.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const list = dzSaved();
+          list.splice(i, 1);
+          localStorage.setItem("kb-designs", JSON.stringify(list));
+          renderDzSaves();
+        });
+        slot.appendChild(rm);
+        box.appendChild(slot);
+      });
+    }
+    renderDzSaves();
+    $("dz-save").addEventListener("click", () => {
+      buzz();
+      const list = dzSaved();
+      list.unshift(dz.toDataURL("image/png"));
+      localStorage.setItem("kb-designs", JSON.stringify(list.slice(0, 6)));
+      renderDzSaves();
+    });
+
+    $("dz-send").addEventListener("click", () => {
+      buzz();
+      dz.toBlob(async (blob) => {
+        const form = new FormData();
+        form.append("file", blob, "Your design.png");
+        const timed = withTimer({});
+        if (timed.revert_minutes) form.append("revert_minutes", timed.revert_minutes);
+        try {
+          const res = await fetch("/api/upload", { method: "POST", body: form });
+          await showMediaResponse(res);
+          closeDesigner();
+        } catch (err) {
+          showToast(err.message || "Couldn't send the design", true);
+        }
+      }, "image/png");
+    });
 
     $("timer-chips").addEventListener("click", (event) => {
       const chip = event.target.closest(".chip");

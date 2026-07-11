@@ -59,6 +59,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   rules, so the hold TTL and timer chips keep a joke from becoming your
   all-day status. For reliable fetches, put a personal key in `auth.json`:
   `{"giphy_key": "..."}` — it's tried before the demo keys
+- **Screen designer** — a pixel editor for the 64×32 panel right in the
+  phone UI: draw, flood-fill, undo, start from what the sign is showing,
+  save favorites on the device, and send to the panel (rides the same
+  manual-hold rules as uploads)
 - **Dumpster fire mode** — one tap plays an original procedurally-animated
   "THIS IS FINE." flame scene (no meme copyright, works offline); also at
   `/api/set/dumpster_fire` for a Stream Deck panic button
