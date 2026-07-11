@@ -755,6 +755,10 @@
         <span class="fire-name">This Is Fine</span>
         <span class="fire-sub">DUMPSTER FIRE MODE</span>
       </button>
+      <button class="fire-btn" id="arcade-btn">
+        <span class="fire-name">Game On</span>
+        <span class="fire-sub">WORLD 6-4</span>
+      </button>
       <button class="upload-btn" id="upload-btn">Upload an image or GIF</button>
       <button class="upload-btn design" id="design-btn">Design a screen</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
@@ -959,6 +963,7 @@
     const MSG_COLORS = {{ msg_colors_json | safe }};
     LABELS.focus = "Focus";
     LABELS.dumpster_fire = "This Is Fine";
+    LABELS.arcade = "Game On";
     const DEMO = {{ 'true' if demo else 'false' }};
     const SOURCE_HINTS = {
       oncall: "call detected",
@@ -1066,6 +1071,7 @@
       });
 
       $("fire-btn").classList.toggle("active", state.status === "dumpster_fire");
+      $("arcade-btn").classList.toggle("active", state.status === "arcade");
 
       document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
         c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
@@ -1254,8 +1260,9 @@
     setInterval(() => { if (!document.hidden) syncState(); }, 5000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) syncState(); });
     // GIFs animate on the panel; keep the phone preview roughly in sync.
+    const ANIMATED = ["media", "dumpster_fire", "arcade"];
     setInterval(() => {
-      if (!document.hidden && (state.status === "media" || state.status === "dumpster_fire")) {
+      if (!document.hidden && ANIMATED.includes(state.status)) {
         refreshPreview();
       }
     }, 1500);
@@ -1578,6 +1585,7 @@
       if (button) pressStatus(button.dataset.key);
     });
     $("fire-btn").addEventListener("click", () => pressStatus("dumpster_fire"));
+    $("arcade-btn").addEventListener("click", () => pressStatus("arcade"));
 
     function sendMessage() {
       const text = $("msg-text").value.trim();

@@ -66,6 +66,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
 - **Dumpster fire mode** — one tap plays an original procedurally-animated
   "THIS IS FINE." flame scene (no meme copyright, works offline); also at
   `/api/set/dumpster_fire` for a Stream Deck panic button
+- **Arcade mode** — an original retro-platformer loop drawn pixel by pixel:
+  scrolling bricks, pipes, blinking coins, and a little runner in KnockBlock
+  orange who jumps the pipes (no licensed sprites, works offline); also at
+  `/api/set/arcade`
 - **Demo mode** — share `/demo` and visitors watch the real sign live
   (state, preview, countdowns) but every write is refused with a polite
   quip; secrets (calendar URL, location, API token) are redacted and the
