@@ -98,6 +98,10 @@ else
   echo "   Already disabled."
 fi
 
+# The service and updater run as root while the clone belongs to the login
+# user; without this, root's git refuses the repo ("dubious ownership").
+run sudo git config --system --add safe.directory "$INSTALL_DIR"
+
 say "systemd service"
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "   [dry-run] render deploy/knockblock.service.in -> $SERVICE_PATH (WORKDIR=$INSTALL_DIR)"
