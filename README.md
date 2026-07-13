@@ -37,6 +37,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   system timezone)
 - **Brightness control**, **state persistence** across power cycles, and a
   **PWA** phone UI (Add to Home Screen for a full-screen app)
+- **Themes** — per-device, in Settings → Appearance: *Glass* (dark,
+  translucent, modern), *Workshop* (the warm house style), or *Clear*
+  (high-contrast, plain, accessibility-first). Stored in a cookie the
+  server reads, so pages load in your theme with no flash
 - **Password login** — everything (UI and API) requires either a logged-in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,

@@ -798,15 +798,24 @@ def update_status():
     return jsonify(version=APP_VERSION, update=status)
 
 
+THEMES = ("workshop", "glass", "clear")
+
+
 @app.route("/")
 def index():
     if not auth.password_set() and _is_local_request():
         return redirect("/setup")
     demo = _demo_active()
+    # Theme is a per-browser choice, not sign state — a cookie, read here
+    # so the first paint is already in the right theme (no flash).
+    theme = request.cookies.get("kb_theme")
+    if theme not in THEMES:
+        theme = "workshop"
     with lock:
         payload = _api_payload(demo=demo)
     return render_template(
         "index.html",
+        theme=theme,
         sign_name=payload["settings"]["sign_name"],
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
