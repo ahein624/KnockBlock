@@ -180,7 +180,7 @@ def _load_state():
         status = manual.get("status")
         message = _valid_message(manual.get("message"))
         until = manual.get("until")
-        ok = (status in list(PRESETS) + ["clock", "dumpster_fire"]
+        ok = (status in list(PRESETS) + ["clock", "dumpster_fire", "arcade"]
               or (status == "custom" and message))
         if status == "media":
             media_frames = media.load_current()
@@ -423,6 +423,8 @@ def _render_current(force=False):
         signature = ("media", media_generation)
     elif status == "dumpster_fire":
         signature = ("fire", media.fire_gif_mtime())
+    elif status == "arcade":
+        signature = ("arcade",)
     elif status == "custom":
         signature = ("custom", message["text"], message["color"])
     elif status == "focus":
@@ -447,6 +449,8 @@ def _render_current(force=False):
         display.play_frames(media_frames or [])
     elif signature[0] == "fire":
         display.play_frames(media.fire_frames())
+    elif signature[0] == "arcade":
+        display.play_frames(media.arcade_frames())
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
@@ -794,15 +798,24 @@ def update_status():
     return jsonify(version=APP_VERSION, update=status)
 
 
+THEMES = ("workshop", "glass", "clear")
+
+
 @app.route("/")
 def index():
     if not auth.password_set() and _is_local_request():
         return redirect("/setup")
     demo = _demo_active()
+    # Theme is a per-browser choice, not sign state — a cookie, read here
+    # so the first paint is already in the right theme (no flash).
+    theme = request.cookies.get("kb_theme")
+    if theme not in THEMES:
+        theme = "workshop"
     with lock:
         payload = _api_payload(demo=demo)
     return render_template(
         "index.html",
+        theme=theme,
         sign_name=payload["settings"]["sign_name"],
         presets=PRESETS,
         message_colors=MESSAGE_COLORS,
@@ -951,7 +964,7 @@ def set_state():
                 status = "clock"
             if status == "auto":
                 state["manual"] = None  # release the hold; autodetect takes over
-            elif status in ("clock", "dumpster_fire") or status in PRESETS:
+            elif status in ("clock", "dumpster_fire", "arcade") or status in PRESETS:
                 _set_manual(status, None, minutes)
             else:
                 return jsonify(error="unknown status"), 400
@@ -999,7 +1012,7 @@ def quick_set(status):
         elif status == "focus":
             minutes = minutes or 25
             state["focus"] = {"until": time.time() + minutes * 60, "minutes": minutes}
-        elif status in ("clock", "dumpster_fire") or status in PRESETS:
+        elif status in ("clock", "dumpster_fire", "arcade") or status in PRESETS:
             _set_manual(status, None, minutes)
         else:
             return jsonify(error="unknown status"), 400

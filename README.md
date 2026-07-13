@@ -37,6 +37,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   system timezone)
 - **Brightness control**, **state persistence** across power cycles, and a
   **PWA** phone UI (Add to Home Screen for a full-screen app)
+- **Themes** — per-device, in Settings → Appearance: *Glass* (dark,
+  translucent, modern), *Workshop* (the warm house style), or *Clear*
+  (high-contrast, plain, accessibility-first). Stored in a cookie the
+  server reads, so pages load in your theme with no flash
 - **Password login** — everything (UI and API) requires either a logged-in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,
@@ -59,9 +63,17 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   rules, so the hold TTL and timer chips keep a joke from becoming your
   all-day status. For reliable fetches, put a personal key in `auth.json`:
   `{"giphy_key": "..."}` — it's tried before the demo keys
+- **Screen designer** — a pixel editor for the 64×32 panel right in the
+  phone UI: draw, flood-fill, undo, start from what the sign is showing,
+  save favorites on the device, and send to the panel (rides the same
+  manual-hold rules as uploads)
 - **Dumpster fire mode** — one tap plays an original procedurally-animated
   "THIS IS FINE." flame scene (no meme copyright, works offline); also at
   `/api/set/dumpster_fire` for a Stream Deck panic button
+- **Arcade mode** — an original retro-platformer loop drawn pixel by pixel:
+  scrolling bricks, pipes, blinking coins, and a little runner in KnockBlock
+  orange who jumps the pipes (no licensed sprites, works offline); also at
+  `/api/set/arcade`
 - **Demo mode** — share `/demo` and visitors watch the real sign live
   (state, preview, countdowns) but every write is refused with a polite
   quip; secrets (calendar URL, location, API token) are redacted and the
