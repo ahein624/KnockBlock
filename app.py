@@ -21,6 +21,7 @@ import auth
 import calendar_source
 import history
 import media
+import panel_themes
 import weather
 from matrix import (
     PANEL_COLS,
@@ -56,6 +57,7 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_SETTINGS = {
     "sign_name": "Knockblock",
+    "panel_theme": "classic",  # how preset statuses render on the panel
     "weather_idle": True,
     "work_start": "08:00",
     "work_end": "18:00",
@@ -270,6 +272,8 @@ def _load_state():
         name = settings.get("sign_name")
         if isinstance(name, str) and name.strip():
             merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
+        if settings.get("panel_theme") in panel_themes.PANEL_THEMES:
+            merged["panel_theme"] = settings["panel_theme"]
         state["settings"] = merged
 
 
@@ -443,7 +447,7 @@ def _render_current(force=False):
             weather_data["code"] if weather_data else None,
         )
     else:
-        signature = ("preset", status)
+        signature = ("preset", status, state["settings"]["panel_theme"])
 
     if not force and signature == render_signature:
         return
@@ -463,8 +467,12 @@ def _render_current(force=False):
         display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
     elif signature[0] == "clock":
         display.render_preset(weather.clock_preset(weather_data, now_dt))
-    else:
+    elif signature[2] == "classic":
         display.render_preset(PRESETS[status])
+    else:
+        # A themed preset is a composed scene; a one-frame "animation"
+        # shows it and stops whatever was looping before.
+        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2]), 1.0)])
 
 
 def _remember_message(text, color):
@@ -864,7 +872,7 @@ def status_thumb(key):
     time); fire and arcade use their first animation frame.
     """
     if key in PRESETS:
-        image = compose_preset(PRESETS[key])
+        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"])
     elif key == "clock":
         image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
     elif key == "dumpster_fire":
@@ -965,6 +973,10 @@ def set_state():
                 if not name:
                     return jsonify(error="sign_name can't be empty"), 400
                 settings["sign_name"] = name[:MAX_SIGN_NAME]
+            if "panel_theme" in incoming:
+                if incoming["panel_theme"] not in panel_themes.PANEL_THEMES:
+                    return jsonify(error="unknown panel_theme"), 400
+                settings["panel_theme"] = incoming["panel_theme"]
             _render_current()
 
         if "schedules" in data:

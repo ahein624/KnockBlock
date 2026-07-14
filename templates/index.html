@@ -779,20 +779,20 @@
       <div class="grid" id="grid">
         {% for key, preset in presets.items() %}
         <button class="status" data-key="{{ key }}">
-          <img class="sthumb" src="/thumb/{{ key }}.png" alt="" loading="lazy">
+          <img class="sthumb" data-key="{{ key }}" src="/thumb/{{ key }}.png" alt="" loading="lazy">
           <span class="srow"><span class="slabel">{{ preset.label }}</span><span class="scur">CURRENT</span></span>
         </button>
         {% endfor %}
         <button class="status" data-key="dumpster_fire">
-          <img class="sthumb" src="/thumb/dumpster_fire.png" alt="" loading="lazy">
+          <img class="sthumb" data-key="dumpster_fire" src="/thumb/dumpster_fire.png" alt="" loading="lazy">
           <span class="srow"><span class="slabel">This Is Fine</span><span class="scur">CURRENT</span></span>
         </button>
         <button class="status" data-key="arcade">
-          <img class="sthumb" src="/thumb/arcade.png" alt="" loading="lazy">
+          <img class="sthumb" data-key="arcade" src="/thumb/arcade.png" alt="" loading="lazy">
           <span class="srow"><span class="slabel">Game On</span><span class="scur">CURRENT</span></span>
         </button>
         <button class="status clockrow" data-key="clock">
-          <img class="sthumb clockthumb" src="/thumb/clock.png" alt="" loading="lazy">
+          <img class="sthumb clockthumb" data-key="clock" src="/thumb/clock.png" alt="" loading="lazy">
           <span class="slabel">Clock &amp; weather</span>
           <span class="ssub">Default when idle</span>
         </button>
@@ -913,6 +913,19 @@
       <h3>Sign name</h3>
       <input id="sign-name-input" type="text" class="text-input" maxlength="40"
              placeholder="Knockblock" autocomplete="off">
+    </div>
+
+    <div class="group">
+      <h3>Panel style</h3>
+      <div class="chips" id="panel-theme-chips" style="grid-template-columns: repeat(3, 1fr);">
+        <button class="chip" data-panel-theme="classic">Classic</button>
+        <button class="chip" data-panel-theme="overworld">Overworld</button>
+        <button class="chip" data-panel-theme="terminal">Terminal</button>
+      </div>
+      <p class="hint">
+        How statuses draw on the panel itself — this one changes the sign
+        for everyone. Custom messages and the clock keep their own look.
+      </p>
     </div>
 
     <div class="group">
@@ -1066,6 +1079,7 @@
     };
     let state = {{ state | tojson }};
     let timerMinutes = 0;
+    let thumbTheme = "classic";  // what the thumb URLs were last fetched for
     let brightDragging = false;
     let brightTimer = null;
 
@@ -1173,6 +1187,17 @@
       if (document.activeElement !== nameInput) nameInput.value = settings.sign_name || "";
       $("sign-name").textContent = settings.sign_name || "Knockblock";
       document.title = "AH. " + (settings.sign_name || "Knockblock");
+
+      // Panel style: reflect the selection and re-fetch thumbs on change.
+      const panelTheme = settings.panel_theme || "classic";
+      document.querySelectorAll("#panel-theme-chips .chip").forEach((c) =>
+        c.classList.toggle("sel", c.dataset.panelTheme === panelTheme));
+      if (panelTheme !== thumbTheme) {
+        thumbTheme = panelTheme;
+        document.querySelectorAll(".sthumb[data-key]").forEach((img) => {
+          img.src = "/thumb/" + img.dataset.key + ".png?v=" + panelTheme;
+        });
+      }
 
       const ical = $("ical-url");
       if (document.activeElement !== ical) ical.value = settings.ical_url || "";
@@ -1670,6 +1695,13 @@
     $("sign-name-input").addEventListener("change", (event) => {
       const name = event.target.value.trim();
       if (name) sendUpdate({ settings: { sign_name: name } });
+    });
+
+    $("panel-theme-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      sendUpdate({ settings: { panel_theme: chip.dataset.panelTheme } });
     });
 
     function withTimer(partial) {
