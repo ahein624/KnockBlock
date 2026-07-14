@@ -22,7 +22,13 @@ import calendar_source
 import history
 import media
 import weather
-from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
+from matrix import (
+    PANEL_COLS,
+    PANEL_ROWS,
+    MatrixDisplay,
+    build_message_preset,
+    compose_preset,
+)
 from presets import (
     DEFAULT_MESSAGE_COLOR,
     DEFAULT_PRESET,
@@ -614,7 +620,10 @@ def _require_auth():
     if session.get("demo"):
         # Spectators: live reads only. Everything mutating — including the
         # GET-able /api/set/* — earns a quip.
-        if request.method == "GET" and request.path in ("/", "/api/state", "/preview.png"):
+        if request.method == "GET" and (
+            request.path in ("/", "/api/state", "/preview.png")
+            or request.path.startswith("/thumb/")
+        ):
             return None
         if request.path.startswith("/api/"):
             return jsonify(error=random.choice(DEMO_QUIPS)), 403
@@ -841,6 +850,37 @@ def preview():
     buffer.seek(0)
     response = send_file(buffer, mimetype="image/png")
     response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+THUMB_SCALE = 3
+
+
+@app.route("/thumb/<key>.png")
+def status_thumb(key):
+    """A small render of what a status would show — the buttons wear these.
+
+    Presets and clock are composed live (so the clock thumb tells the real
+    time); fire and arcade use their first animation frame.
+    """
+    if key in PRESETS:
+        image = compose_preset(PRESETS[key])
+    elif key == "clock":
+        image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
+    elif key == "dumpster_fire":
+        image = media.fire_frames()[0][0]
+    elif key == "arcade":
+        image = media.arcade_frames()[0][0]
+    else:
+        return jsonify(error="unknown status"), 404
+    image = image.resize(
+        (image.width * THUMB_SCALE, image.height * THUMB_SCALE), Image.NEAREST
+    )
+    buffer = BytesIO()
+    image.save(buffer, "PNG")
+    buffer.seek(0)
+    response = send_file(buffer, mimetype="image/png")
+    response.headers["Cache-Control"] = "max-age=300"
     return response
 
 
