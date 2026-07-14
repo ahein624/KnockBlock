@@ -60,7 +60,6 @@
   }
   [data-theme="glass"] .field-btn { color: #fff; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
   [data-theme="glass"] button.status,
-  [data-theme="glass"] .fire-btn,
   [data-theme="glass"] .demo-note,
   [data-theme="glass"] .recent {
     backdrop-filter: blur(14px);
@@ -241,14 +240,30 @@
   button.status {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     align-items: stretch;
-    height: 76px;
-    padding: 14px;
+    gap: 8px;
+    padding: 8px 8px 10px;
     text-align: left;
     background: var(--raised);
     border: 1px solid var(--edge);
     border-radius: var(--radius);
+  }
+  .sthumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    object-fit: cover;
+    image-rendering: pixelated;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) / 2);
+  }
+  .status .srow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px;
+    padding: 0 4px;
   }
   .status .scur {
     font: 600 10px var(--font-body);
@@ -257,8 +272,11 @@
     visibility: hidden;
   }
   .status .slabel {
-    font: 600 16px var(--font-display);
+    font: 600 15px var(--font-display);
     color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   button.status.active {
     background: var(--orange);
@@ -270,11 +288,12 @@
     grid-column: 1 / -1;
     flex-direction: row;
     align-items: center;
-    height: auto;
-    padding: 12px 14px;
+    gap: 12px;
+    padding: 8px 14px 8px 8px;
     background: none;
   }
-  .clockrow .slabel { font-size: 15px; flex: 1; }
+  .clockrow .clockthumb { width: 72px; flex-shrink: 0; }
+  .clockrow .slabel { flex: 1; }
   .clockrow .ssub { font: 400 12px var(--font-body); color: var(--ink-faint); }
   button.status.clockrow.active { background: var(--orange); border-color: var(--orange); }
   .clockrow.active .ssub { color: var(--tag); }
@@ -362,25 +381,6 @@
   }
   .recent .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .recent .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .fire-btn {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 14px 16px;
-    background: none;
-    border: 1px solid var(--edge);
-    border-radius: var(--radius);
-  }
-  .fire-btn .fire-name { font: 600 16px var(--font-display); color: var(--ink); }
-  .fire-btn .fire-sub {
-    font: 600 11px var(--font-body);
-    letter-spacing: 0.1em;
-    color: var(--ink-soft);
-  }
-  .fire-btn.active { border-color: var(--orange); }
-  .fire-btn.active .fire-name, .fire-btn.active .fire-sub { color: var(--orange); }
 
   .upload-btn {
     padding: 12px 16px;
@@ -779,11 +779,20 @@
       <div class="grid" id="grid">
         {% for key, preset in presets.items() %}
         <button class="status" data-key="{{ key }}">
-          <span class="scur">CURRENT</span>
-          <span class="slabel">{{ preset.label }}</span>
+          <img class="sthumb" data-key="{{ key }}" src="/thumb/{{ key }}.png" alt="" loading="lazy">
+          <span class="srow"><span class="slabel">{{ preset.label }}</span><span class="scur">CURRENT</span></span>
         </button>
         {% endfor %}
+        <button class="status" data-key="dumpster_fire">
+          <img class="sthumb" data-key="dumpster_fire" src="/thumb/dumpster_fire.png" alt="" loading="lazy">
+          <span class="srow"><span class="slabel">This Is Fine</span><span class="scur">CURRENT</span></span>
+        </button>
+        <button class="status" data-key="arcade">
+          <img class="sthumb" data-key="arcade" src="/thumb/arcade.png" alt="" loading="lazy">
+          <span class="srow"><span class="slabel">Game On</span><span class="scur">CURRENT</span></span>
+        </button>
         <button class="status clockrow" data-key="clock">
+          <img class="sthumb clockthumb" data-key="clock" src="/thumb/clock.png" alt="" loading="lazy">
           <span class="slabel">Clock &amp; weather</span>
           <span class="ssub">Default when idle</span>
         </button>
@@ -832,14 +841,6 @@
         <input id="gif-query" class="field-input" maxlength="60" placeholder="Search, or leave blank for a surprise" autocomplete="off" enterkeyhint="go">
         <button id="gif-roll" class="field-btn" aria-label="Random GIF">Roll</button>
       </div>
-      <button class="fire-btn" id="fire-btn">
-        <span class="fire-name">This Is Fine</span>
-        <span class="fire-sub">DUMPSTER FIRE MODE</span>
-      </button>
-      <button class="fire-btn" id="arcade-btn">
-        <span class="fire-name">Game On</span>
-        <span class="fire-sub">WORLD 6-4</span>
-      </button>
       <button class="upload-btn" id="upload-btn">Upload an image or GIF</button>
       <button class="upload-btn design" id="design-btn">Design a screen</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
@@ -912,6 +913,19 @@
       <h3>Sign name</h3>
       <input id="sign-name-input" type="text" class="text-input" maxlength="40"
              placeholder="Knockblock" autocomplete="off">
+    </div>
+
+    <div class="group">
+      <h3>Panel style</h3>
+      <div class="chips" id="panel-theme-chips" style="grid-template-columns: repeat(3, 1fr);">
+        <button class="chip" data-panel-theme="classic">Classic</button>
+        <button class="chip" data-panel-theme="overworld">Overworld</button>
+        <button class="chip" data-panel-theme="terminal">Terminal</button>
+      </div>
+      <p class="hint">
+        How statuses draw on the panel itself — this one changes the sign
+        for everyone. Custom messages and the clock keep their own look.
+      </p>
     </div>
 
     <div class="group">
@@ -1065,6 +1079,7 @@
     };
     let state = {{ state | tojson }};
     let timerMinutes = 0;
+    let thumbTheme = "classic";  // what the thumb URLs were last fetched for
     let brightDragging = false;
     let brightTimer = null;
 
@@ -1164,8 +1179,6 @@
         c.classList.toggle("sel", !!focusOn && state.focus.minutes === Number(c.dataset.min));
       });
 
-      $("fire-btn").classList.toggle("active", state.status === "dumpster_fire");
-      $("arcade-btn").classList.toggle("active", state.status === "arcade");
 
       document.querySelectorAll("#ttl-chips .chip").forEach((c) =>
         c.classList.toggle("sel", Number(c.dataset.ttl) === (settings.manual_ttl_minutes ?? 120)));
@@ -1174,6 +1187,17 @@
       if (document.activeElement !== nameInput) nameInput.value = settings.sign_name || "";
       $("sign-name").textContent = settings.sign_name || "Knockblock";
       document.title = "AH. " + (settings.sign_name || "Knockblock");
+
+      // Panel style: reflect the selection and re-fetch thumbs on change.
+      const panelTheme = settings.panel_theme || "classic";
+      document.querySelectorAll("#panel-theme-chips .chip").forEach((c) =>
+        c.classList.toggle("sel", c.dataset.panelTheme === panelTheme));
+      if (panelTheme !== thumbTheme) {
+        thumbTheme = panelTheme;
+        document.querySelectorAll(".sthumb[data-key]").forEach((img) => {
+          img.src = "/thumb/" + img.dataset.key + ".png?v=" + panelTheme;
+        });
+      }
 
       const ical = $("ical-url");
       if (document.activeElement !== ical) ical.value = settings.ical_url || "";
@@ -1673,6 +1697,13 @@
       if (name) sendUpdate({ settings: { sign_name: name } });
     });
 
+    $("panel-theme-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      sendUpdate({ settings: { panel_theme: chip.dataset.panelTheme } });
+    });
+
     function withTimer(partial) {
       if (timerMinutes > 0) {
         partial.revert_minutes = timerMinutes;
@@ -1698,8 +1729,6 @@
       const button = event.target.closest("button.status");
       if (button) pressStatus(button.dataset.key);
     });
-    $("fire-btn").addEventListener("click", () => pressStatus("dumpster_fire"));
-    $("arcade-btn").addEventListener("click", () => pressStatus("arcade"));
 
     function sendMessage() {
       const text = $("msg-text").value.trim();

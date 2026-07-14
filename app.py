@@ -21,8 +21,15 @@ import auth
 import calendar_source
 import history
 import media
+import panel_themes
 import weather
-from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay, build_message_preset
+from matrix import (
+    PANEL_COLS,
+    PANEL_ROWS,
+    MatrixDisplay,
+    build_message_preset,
+    compose_preset,
+)
 from presets import (
     DEFAULT_MESSAGE_COLOR,
     DEFAULT_PRESET,
@@ -50,6 +57,7 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_SETTINGS = {
     "sign_name": "Knockblock",
+    "panel_theme": "classic",  # how preset statuses render on the panel
     "weather_idle": True,
     "work_start": "08:00",
     "work_end": "18:00",
@@ -264,6 +272,8 @@ def _load_state():
         name = settings.get("sign_name")
         if isinstance(name, str) and name.strip():
             merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
+        if settings.get("panel_theme") in panel_themes.PANEL_THEMES:
+            merged["panel_theme"] = settings["panel_theme"]
         state["settings"] = merged
 
 
@@ -437,7 +447,7 @@ def _render_current(force=False):
             weather_data["code"] if weather_data else None,
         )
     else:
-        signature = ("preset", status)
+        signature = ("preset", status, state["settings"]["panel_theme"])
 
     if not force and signature == render_signature:
         return
@@ -457,8 +467,12 @@ def _render_current(force=False):
         display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
     elif signature[0] == "clock":
         display.render_preset(weather.clock_preset(weather_data, now_dt))
-    else:
+    elif signature[2] == "classic":
         display.render_preset(PRESETS[status])
+    else:
+        # A themed preset is a composed scene; a one-frame "animation"
+        # shows it and stops whatever was looping before.
+        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2]), 1.0)])
 
 
 def _remember_message(text, color):
@@ -614,7 +628,10 @@ def _require_auth():
     if session.get("demo"):
         # Spectators: live reads only. Everything mutating — including the
         # GET-able /api/set/* — earns a quip.
-        if request.method == "GET" and request.path in ("/", "/api/state", "/preview.png"):
+        if request.method == "GET" and (
+            request.path in ("/", "/api/state", "/preview.png")
+            or request.path.startswith("/thumb/")
+        ):
             return None
         if request.path.startswith("/api/"):
             return jsonify(error=random.choice(DEMO_QUIPS)), 403
@@ -844,6 +861,37 @@ def preview():
     return response
 
 
+THUMB_SCALE = 3
+
+
+@app.route("/thumb/<key>.png")
+def status_thumb(key):
+    """A small render of what a status would show — the buttons wear these.
+
+    Presets and clock are composed live (so the clock thumb tells the real
+    time); fire and arcade use their first animation frame.
+    """
+    if key in PRESETS:
+        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"])
+    elif key == "clock":
+        image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
+    elif key == "dumpster_fire":
+        image = media.fire_frames()[0][0]
+    elif key == "arcade":
+        image = media.arcade_frames()[0][0]
+    else:
+        return jsonify(error="unknown status"), 404
+    image = image.resize(
+        (image.width * THUMB_SCALE, image.height * THUMB_SCALE), Image.NEAREST
+    )
+    buffer = BytesIO()
+    image.save(buffer, "PNG")
+    buffer.seek(0)
+    response = send_file(buffer, mimetype="image/png")
+    response.headers["Cache-Control"] = "max-age=300"
+    return response
+
+
 @app.route("/api/state")
 def get_state():
     with lock:
@@ -925,6 +973,10 @@ def set_state():
                 if not name:
                     return jsonify(error="sign_name can't be empty"), 400
                 settings["sign_name"] = name[:MAX_SIGN_NAME]
+            if "panel_theme" in incoming:
+                if incoming["panel_theme"] not in panel_themes.PANEL_THEMES:
+                    return jsonify(error="unknown panel_theme"), 400
+                settings["panel_theme"] = incoming["panel_theme"]
             _render_current()
 
         if "schedules" in data:
