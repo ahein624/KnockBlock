@@ -401,6 +401,24 @@
   .recent .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .recent .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  .gif-results {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .gif-results:empty { display: none; }
+  .gif-results img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #000;
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .gif-results img.sel { outline: 2px solid var(--orange); outline-offset: 1px; }
+
   .upload-btn {
     padding: 12px 16px;
     text-align: center;
@@ -861,9 +879,10 @@
     <section class="fieldset">
       <h2>GIFs &amp; images</h2>
       <div class="compose-row">
-        <input id="gif-query" class="field-input" maxlength="60" placeholder="Search, or leave blank for a surprise" autocomplete="off" enterkeyhint="go">
+        <input id="gif-query" class="field-input" maxlength="60" placeholder="Search GIFs, or Roll for a surprise" autocomplete="off" enterkeyhint="search">
         <button id="gif-roll" class="field-btn" aria-label="Random GIF">Roll</button>
       </div>
+      <div class="gif-results" id="gif-results"></div>
       <button class="upload-btn" id="upload-btn">Upload an image or GIF</button>
       <button class="upload-btn design" id="design-btn">Design a screen</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
@@ -907,6 +926,12 @@
     </div>
     <button class="upload-btn" id="cs-file-btn">…or over an image / meme / GIF</button>
     <input type="file" id="cs-file" accept="image/*" hidden>
+    <div class="compose-row">
+      <input id="cs-gif-query" type="text" class="field-input" maxlength="60"
+             placeholder="…or search for a meme" autocomplete="off" enterkeyhint="search">
+      <button id="cs-gif-search" class="field-btn">Search</button>
+    </div>
+    <div class="gif-results" id="cs-gif-results"></div>
     <p class="hint" id="cs-file-name" hidden></p>
     <button class="field-btn" id="cs-save" style="justify-content: center;">Add to the grid</button>
     <div class="group" id="cs-list"></div>
@@ -1471,8 +1496,51 @@
         btn.classList.remove("busy");
       }
     });
-    $("gif-query").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") $("gif-roll").click();
+    /* ---- GIF search & pick ---- */
+    async function searchGifs(query) {
+      const res = await fetch("/api/gif/search?q=" + encodeURIComponent(query));
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Search failed");
+      return body.results;
+    }
+
+    function fillGifGrid(box, results, onPick) {
+      box.innerHTML = "";
+      results.forEach((result) => {
+        const img = document.createElement("img");
+        img.src = result.preview;
+        img.alt = result.title || "GIF";
+        img.title = result.title || "";
+        img.loading = "lazy";
+        img.addEventListener("click", () => onPick(result, img));
+        box.appendChild(img);
+      });
+    }
+
+    $("gif-query").addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter") return;
+      event.target.blur();
+      buzz();
+      try {
+        const results = await searchGifs($("gif-query").value.trim());
+        fillGifGrid($("gif-results"), results, async (result) => {
+          buzz();
+          try {
+            const res = await fetch("/api/gif", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(withTimer({ url: result.url, title: result.title })),
+            });
+            await showMediaResponse(res);
+            $("gif-results").innerHTML = "";
+            $("gif-query").value = "";
+          } catch (err) {
+            showToast(err.message || "Couldn't show that GIF", true);
+          }
+        });
+      } catch (err) {
+        showToast(err.message || "Search failed", true);
+      }
     });
 
     $("upload-btn").addEventListener("click", () => $("upload-file").click());
@@ -1609,11 +1677,39 @@
     }
     statusEditor.querySelector(".grabber").addEventListener("click", closeStatusEditor);
 
+    let csPickedGif = null;  // search-picked background for a new status
+
     $("cs-file-btn").addEventListener("click", () => $("cs-file").click());
     $("cs-file").addEventListener("change", () => {
       const file = $("cs-file").files[0];
+      if (file) {
+        csPickedGif = null;
+        $("cs-gif-results").innerHTML = "";
+      }
       $("cs-file-name").hidden = !file;
       $("cs-file-name").textContent = file ? "Background: " + file.name : "";
+    });
+
+    async function csGifSearch() {
+      buzz();
+      try {
+        const results = await searchGifs($("cs-gif-query").value.trim());
+        fillGifGrid($("cs-gif-results"), results, (result, img) => {
+          buzz();
+          csPickedGif = result;
+          $("cs-file").value = "";
+          document.querySelectorAll("#cs-gif-results img").forEach((i) =>
+            i.classList.toggle("sel", i === img));
+          $("cs-file-name").hidden = false;
+          $("cs-file-name").textContent = "Background: " + (result.title || "picked GIF");
+        });
+      } catch (err) {
+        showToast(err.message || "Search failed", true);
+      }
+    }
+    $("cs-gif-search").addEventListener("click", csGifSearch);
+    $("cs-gif-query").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.target.blur(); csGifSearch(); }
     });
 
     $("cs-save").addEventListener("click", async () => {
@@ -1625,6 +1721,8 @@
       const file = $("cs-file").files[0];
       if (file) {
         form.append("file", file);
+      } else if (csPickedGif) {
+        form.append("url", csPickedGif.url);
       } else {
         form.append("bg_color", document.querySelector('input[name="cs-color"]:checked').value);
       }
@@ -1636,6 +1734,9 @@
         $("cs-text").value = "";
         $("cs-file").value = "";
         $("cs-file-name").hidden = true;
+        $("cs-gif-query").value = "";
+        $("cs-gif-results").innerHTML = "";
+        csPickedGif = null;
         renderState();
         closeStatusEditor();
       } catch (err) {
