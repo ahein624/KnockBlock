@@ -1152,18 +1152,41 @@ def _parse_revert_minutes(value):
     return value, None
 
 
+@app.route("/api/gif/search")
+def gif_search():
+    """GIF candidates to pick from: [{"url", "preview", "title"}, ...]."""
+    query = str(request.args.get("q") or "")[:60]
+    try:
+        return jsonify(results=media.search_gifs(query))
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)), 502
+
+
 @app.route("/api/gif", methods=["POST"])
-def random_gif():
-    """Fetch a random GIF (optionally for a search) and put it on the panel."""
+def show_gif():
+    """Put a GIF on the panel: a search-picked one ({"url", "title"}) or
+    a random one for a query."""
     data = request.get_json(silent=True) or {}
     minutes, err = _parse_revert_minutes(data.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
-    query = str(data.get("query") or "")[:60]
+    if data.get("url"):
+        try:
+            raw = media.fetch_gif_url(str(data["url"]))
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        except Exception:
+            return jsonify(error="couldn't download that GIF"), 502
+        used_query = str(data.get("title") or "").strip()[:30] or "picked"
+    else:
+        query = str(data.get("query") or "")[:60]
+        try:
+            raw, used_query = media.fetch_random_gif(query)
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 502
     try:
-        raw, used_query = media.fetch_random_gif(query)
         frames = media.frames_from_bytes(raw)
-    except (RuntimeError, ValueError) as exc:
+    except ValueError as exc:
         return jsonify(error=str(exc)), 502
     media.save_current(raw, "gif")
     with lock:
@@ -1175,15 +1198,25 @@ def random_gif():
 
 @app.route("/api/statuses", methods=["POST"])
 def create_custom_status():
-    """Make a new status button: text over a panel color or an uploaded
-    image/GIF (multipart form: text, and bg_color or file)."""
+    """Make a new status button: text over a panel color, an uploaded
+    image/GIF, or a search-picked GIF (multipart form: text, and
+    bg_color, file, or url)."""
     text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
     if not text:
         return jsonify(error="text is required"), 400
     file = request.files.get("file")
+    picked_url = (request.form.get("url") or "").strip()
     status_id = "cs_" + secrets.token_hex(4)
-    if file is not None and file.filename:
-        raw = file.read()
+    if (file is not None and file.filename) or picked_url:
+        if file is not None and file.filename:
+            raw = file.read()
+        else:
+            try:
+                raw = media.fetch_gif_url(picked_url)
+            except ValueError as exc:
+                return jsonify(error=str(exc)), 400
+            except Exception:
+                return jsonify(error="couldn't download that GIF"), 502
         try:
             frames = media.frames_from_bytes(raw)
         except ValueError:

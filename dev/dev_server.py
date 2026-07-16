@@ -12,6 +12,8 @@ real sign's files are never touched. Environment switches:
                                 the login and demo flows are exercisable)
     KNOCKBLOCK_DEV_UNCLAIMED=1  skip setting the dev password (first-run
                                 claim flow; combine with DEV_LOCAL)
+    KNOCKBLOCK_DEV_FAKE_GIFS=1  offline GIF search/pick fixtures, so the
+                                flow is testable without provider keys
 """
 import os
 import shutil
@@ -43,6 +45,44 @@ from matrix import MatrixDisplay
 kb.display = MatrixDisplay()
 # Never let the Update button reset the development checkout.
 kb.UPDATE_SCRIPT = RUN_DIR / "no-self-update-in-dev"
+
+if os.environ.get("KNOCKBLOCK_DEV_FAKE_GIFS"):
+    import base64
+    import random as _random
+    from io import BytesIO
+    from PIL import Image
+
+    def _fixture_bytes(seed):
+        rng = _random.Random(seed)
+        base = tuple(rng.randrange(30, 180) for _ in range(3))
+        frames = [
+            Image.new("RGB", (64, 32), tuple(min(255, c + i * 20) for c in base))
+            for i in range(4)
+        ]
+        buf = BytesIO()
+        frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:],
+                       duration=200, loop=0)
+        return buf.getvalue()
+
+    _FIXTURES = {f"https://media.tenor.com/fixture/{i}.gif": _fixture_bytes(i)
+                 for i in range(6)}
+
+    def _fake_search(query, limit=12):
+        return [
+            {"url": url,
+             "preview": "data:image/gif;base64," + base64.b64encode(raw).decode(),
+             "title": f"{(query or 'fixture').strip() or 'fixture'} #{i + 1}"}
+            for i, (url, raw) in enumerate(_FIXTURES.items())
+        ]
+
+    def _fake_fetch(url):
+        if url in _FIXTURES:
+            return _FIXTURES[url]
+        raise ValueError("that URL isn't from a known GIF provider")
+
+    media.search_gifs = _fake_search
+    media.fetch_gif_url = _fake_fetch
+    print("Fake GIF providers active")
 if not auth.password_set() and not os.environ.get("KNOCKBLOCK_DEV_UNCLAIMED"):
     auth.set_password("devpassword1")
 if not os.environ.get("KNOCKBLOCK_DEV_LOCAL"):
