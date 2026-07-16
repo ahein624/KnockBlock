@@ -68,6 +68,7 @@ DEFAULT_SETTINGS = {
     "sleep_enabled": False,
     "sleep_start": "22:00",
     "sleep_end": "07:00",
+    "sleep_scene": "dark",  # "dark" = panel off, "moon" = dim night scene
     "ical_url": None,  # Google Calendar secret iCal address
     "manual_ttl_minutes": 120,  # 0 = manual presses hold forever
 }
@@ -274,6 +275,8 @@ def _load_state():
             merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
         if settings.get("panel_theme") in panel_themes.PANEL_THEMES:
             merged["panel_theme"] = settings["panel_theme"]
+        if settings.get("sleep_scene") in ("dark", "moon"):
+            merged["sleep_scene"] = settings["sleep_scene"]
         state["settings"] = merged
 
 
@@ -428,7 +431,7 @@ def _render_current(force=False):
     source, status, message, _ = _arbitrate(time.time())
     _record_transition(source, status)
     if _sleeping(source, status, now_dt):
-        signature = ("sleep",)
+        signature = ("sleep", state["settings"]["sleep_scene"])
     elif status == "media":
         signature = ("media", media_generation)
     elif status == "dumpster_fire":
@@ -454,7 +457,10 @@ def _render_current(force=False):
     render_signature = signature
 
     if signature[0] == "sleep":
-        display.render_preset(SLEEP_PRESET)
+        if signature[1] == "moon":
+            display.play_frames(media.quiet_frames())
+        else:
+            display.render_preset(SLEEP_PRESET)
     elif signature[0] == "media":
         display.play_frames(media_frames or [])
     elif signature[0] == "fire":
@@ -977,6 +983,10 @@ def set_state():
                 if incoming["panel_theme"] not in panel_themes.PANEL_THEMES:
                     return jsonify(error="unknown panel_theme"), 400
                 settings["panel_theme"] = incoming["panel_theme"]
+            if "sleep_scene" in incoming:
+                if incoming["sleep_scene"] not in ("dark", "moon"):
+                    return jsonify(error="sleep_scene must be 'dark' or 'moon'"), 400
+                settings["sleep_scene"] = incoming["sleep_scene"]
             _render_current()
 
         if "schedules" in data:

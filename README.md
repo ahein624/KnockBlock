@@ -47,7 +47,9 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   Apple Shortcuts, or curl (see below)
 - **Sleep schedule** — the panel goes dark during a configurable window
   (e.g. 22:00–07:00) whenever it's idle; a deliberately set status or custom
-  message still shows
+  message still shows. Or pick **Moonlight** instead of dark: a very dim
+  night scene — crescent moon, twinkling stars, and a sleeping cat
+  exhaling z's
 - **On-a-call autodetect** — a tiny agent on your laptop watches the
   camera/mic (macOS via OverSight, Windows via the ConsentStore registry)
   and heartbeats the sign; a 15s watchdog clears the status if the agent

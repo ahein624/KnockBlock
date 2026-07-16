@@ -214,6 +214,71 @@ def fire_frames():
     return _fire_gif_cache[1]
 
 
+# ---- quiet hours ------------------------------------------------------
+# The optional sleep-window scene: a dim crescent moon, a few slowly
+# twinkling stars, and a sleeping cat exhaling z's. Deliberately faint —
+# quiet hours shouldn't light up the hallway.
+
+QUIET_FRAME_COUNT = 8
+QUIET_FRAME_SECONDS = 1.5
+_quiet_frames_cache = None
+
+_NIGHT_STAR = (32, 32, 44)
+_NIGHT_STAR_BRIGHT = (80, 80, 105)
+_NIGHT_MOON = (85, 75, 40)
+_NIGHT_CAT = (30, 28, 40)
+_NIGHT_Z = (55, 55, 80)
+
+_STARS = ((4, 4), (12, 10), (20, 3), (30, 8), (38, 2), (44, 12),
+          (58, 6), (61, 16), (8, 18), (26, 14))
+
+
+def _quiet_frame(t):
+    from PIL import ImageDraw
+
+    image = Image.new("RGB", (PANEL_COLS, PANEL_ROWS), (0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    pixels = image.load()
+
+    # Stars: each twinkles on its own beat.
+    for index, (x, y) in enumerate(_STARS):
+        bright = (t + index) % 4 == 0
+        pixels[x, y] = _NIGHT_STAR_BRIGHT if bright else _NIGHT_STAR
+
+    # Crescent moon, top right: a disc with a bite taken by the sky.
+    draw.ellipse([48, 3, 58, 13], fill=_NIGHT_MOON)
+    draw.ellipse([45, 2, 55, 12], fill=(0, 0, 0))
+
+    # The cat, asleep on the bottom edge: body, head, ears, curled tail.
+    draw.ellipse([8, 25, 26, 31], fill=_NIGHT_CAT)          # body
+    draw.ellipse([22, 22, 30, 30], fill=_NIGHT_CAT)         # head
+    draw.polygon([(23, 23), (25, 19), (26, 23)], fill=_NIGHT_CAT)  # ear
+    draw.polygon([(27, 23), (29, 20), (30, 24)], fill=_NIGHT_CAT)  # ear
+    draw.arc([2, 24, 12, 34], 180, 300, fill=_NIGHT_CAT)    # tail
+
+    # z z Z drifting up from the cat, looping on the frame count.
+    font_small, font_big = _font(7), _font(9)
+    for phase, (dx, size) in enumerate(((0, "s"), (3, "s"), (6, "b"))):
+        rise = (t + phase * 2) % QUIET_FRAME_COUNT
+        x = 33 + phase * 5 + rise // 3
+        y = 20 - rise * 2
+        if 0 <= y < PANEL_ROWS - 4:
+            draw.text((x, y), "z" if size == "s" else "Z",
+                      font=font_small if size == "s" else font_big, fill=_NIGHT_Z)
+    return image
+
+
+def quiet_frames():
+    """Looping frames for the quiet-hours scene. Generated once."""
+    global _quiet_frames_cache
+    if _quiet_frames_cache is None:
+        _quiet_frames_cache = [
+            (_quiet_frame(t), QUIET_FRAME_SECONDS)
+            for t in range(QUIET_FRAME_COUNT)
+        ]
+    return _quiet_frames_cache
+
+
 # ---- arcade mode ------------------------------------------------------
 # An original retro-platformer loop (no licensed sprites): scrolling brick
 # ground, pipes, blinking coins, and a little runner in KnockBlock colors

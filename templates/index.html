@@ -973,6 +973,14 @@
         <span class="sep">to</span>
         <input type="time" id="sleep-end">
       </div>
+      <div class="chips" id="sleep-scene-chips" style="grid-template-columns: repeat(2, 1fr);">
+        <button class="chip" data-scene="dark">Dark</button>
+        <button class="chip" data-scene="moon">Moonlight</button>
+      </div>
+      <p class="hint">
+        Moonlight keeps a very dim night scene on the panel — a moon, a
+        few stars, and a cat who has the right idea.
+      </p>
     </div>
 
     <div class="group">
@@ -1165,6 +1173,8 @@
       const ss = $("sleep-start"), se = $("sleep-end");
       if (document.activeElement !== ss) ss.value = settings.sleep_start || "22:00";
       if (document.activeElement !== se) se.value = settings.sleep_end || "07:00";
+      document.querySelectorAll("#sleep-scene-chips .chip").forEach((c) =>
+        c.classList.toggle("sel", c.dataset.scene === (settings.sleep_scene || "dark")));
       document.querySelectorAll(".units button").forEach((b) =>
         b.classList.toggle("sel", b.dataset.u === (settings.units || "f")));
 
@@ -1380,7 +1390,7 @@
     // GIFs animate on the panel; keep the phone preview roughly in sync.
     const ANIMATED = ["media", "dumpster_fire", "arcade"];
     setInterval(() => {
-      if (!document.hidden && ANIMATED.includes(state.status)) {
+      if (!document.hidden && (ANIMATED.includes(state.status) || state.sleeping)) {
         refreshPreview();
       }
     }, 1500);
@@ -1702,6 +1712,13 @@
       if (!chip) return;
       buzz();
       sendUpdate({ settings: { panel_theme: chip.dataset.panelTheme } });
+    });
+
+    $("sleep-scene-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      sendUpdate({ settings: { sleep_scene: chip.dataset.scene } });
     });
 
     function withTimer(partial) {
