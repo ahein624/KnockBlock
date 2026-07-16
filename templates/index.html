@@ -190,7 +190,24 @@
   .demo-note strong, .demo-note em { color: var(--ink); font-style: normal; }
 
   /* ---- on the door now ---- */
-  .door { display: grid; gap: 10px; }
+  /* Sticky: the live preview stays visible while scrolling and
+     configuring; it shrinks once you're past the top. */
+  .door {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: grid;
+    gap: 10px;
+    background: var(--bg);
+    padding: 8px 0 12px;
+  }
+  .door .screen { width: 100%; margin: 0 auto; transition: width 0.25s ease; }
+  .door.compact .screen { width: 58%; }
+  [data-theme="glass"] .door {
+    background: rgba(11, 14, 23, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
   .door .lbl {
     font: 600 12px var(--font-body);
     letter-spacing: 0.14em;
@@ -2241,6 +2258,12 @@
         setTimeout(refreshPreview, 150);
       }, 250);
     });
+
+    // Shrink the sticky door preview once the page is scrolled.
+    const doorSection = document.querySelector(".door");
+    window.addEventListener("scroll", () => {
+      doorSection.classList.toggle("compact", window.scrollY > 48);
+    }, { passive: true });
 
     renderState();
   </script>
