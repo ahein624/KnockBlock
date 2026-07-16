@@ -45,6 +45,12 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   translucent, modern), *Workshop* (the warm house style), or *Clear*
   (high-contrast, plain, accessibility-first). Stored in a cookie the
   server reads, so pages load in your theme with no flash
+- **Panel styles** — sign-wide, in Settings → Panel style: *Classic* flat
+  cards, *Overworld* (statuses on floating blocks over the arcade level),
+  *Terminal* (green-phosphor console with scanlines), or *8-bit* (pixel
+  icon cards — headset, sun, meeting heads, do-not-enter — with the clock
+  and focus screens drawn to match: sun or moon by hour, hourglass timer).
+  All original pixel art; the status buttons preview whichever is active
 - **Password login** — everything (UI and API) requires either a logged-in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,
@@ -63,12 +69,14 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
 - **Calendar** — point it at a Google Calendar secret iCal address (no
   OAuth) and the sign shows "In a Meeting" during events, recurring ones
   included
-- **GIFs & images** — a dice button fetches a random funny GIF (Tenor/Giphy,
-  works out of the box on public demo keys) and plays it on the panel; upload
-  any image or animated GIF from the phone. Media rides the manual-hold
-  rules, so the hold TTL and timer chips keep a joke from becoming your
-  all-day status. For reliable fetches, put a personal key in `auth.json`:
-  `{"giphy_key": "..."}` — it's tried before the demo keys
+- **GIFs & images** — search Tenor/Giphy and pick from a grid of results,
+  or hit Roll for a random one; picks work as panel screens and as custom
+  status backgrounds, and you can upload any image or animated GIF from the
+  phone. Media rides the manual-hold rules, so the hold TTL and timer chips
+  keep a joke from becoming your all-day status. Picked results only ever
+  download from the providers' own CDNs. The old public demo keys have gone
+  stale, so put a personal (free) key in `auth.json`:
+  `{"giphy_key": "..."}` — it's tried first
 - **Screen designer** — a pixel editor for the 64×32 panel right in the
   phone UI: draw, flood-fill, undo, start from what the sign is showing,
   save favorites on the device, and send to the panel (rides the same
@@ -195,8 +203,10 @@ or `?token=<token>`:
   `{"status": "cs_…"}` or `/api/set/cs_…`
 - `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
   sensor; the status clears itself 15s after the last `true`
-- `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
-  optional); fetches a random GIF and plays it
+- `GET /api/gif/search?q=…` — GIF candidates: `[{"url", "preview", "title"}]`
+- `POST /api/gif` — `{"url": "...", "title": "..."}` shows a search pick
+  (provider CDNs only), or `{"query": "dancing cat"}` for a random one;
+  `revert_minutes` optional on both
 - `POST /api/upload` — multipart `file` (image or GIF) plus optional
   `revert_minutes`; shows it on the panel
 - `GET|POST /api/set/<status>` — one-URL change for buttons:

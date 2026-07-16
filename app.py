@@ -484,6 +484,7 @@ def _render_current(force=False):
             now_dt.strftime("%H:%M"),
             weather_data["temp"] if weather_data else None,
             weather_data["code"] if weather_data else None,
+            state["settings"]["panel_theme"],
         )
     else:
         signature = ("preset", status, state["settings"]["panel_theme"])
@@ -506,7 +507,10 @@ def _render_current(force=False):
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
-        display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
+        if state["settings"]["panel_theme"] == "eightbit":
+            display.play_frames([(panel_themes.eightbit_focus(signature[1]), 1.0)])
+        else:
+            display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
     elif signature[0] == "cstatus":
         entry = _custom_status(status)
         if entry.get("file"):
@@ -514,13 +518,16 @@ def _render_current(force=False):
         else:
             display.render_preset(build_message_preset(entry["text"], entry["bg"]))
     elif signature[0] == "clock":
-        display.render_preset(weather.clock_preset(weather_data, now_dt))
+        if signature[4] == "eightbit":
+            display.play_frames([(panel_themes.eightbit_clock(weather_data, now_dt), 1.0)])
+        else:
+            display.render_preset(weather.clock_preset(weather_data, now_dt))
     elif signature[2] == "classic":
         display.render_preset(PRESETS[status])
     else:
         # A themed preset is a composed scene; a one-frame "animation"
         # shows it and stops whatever was looping before.
-        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2]), 1.0)])
+        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2], status), 1.0)])
 
 
 def _remember_message(text, color):
@@ -923,7 +930,7 @@ def status_thumb(key):
     time); fire and arcade use their first animation frame.
     """
     if key in PRESETS:
-        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"])
+        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"], key)
     elif _custom_status(key) is not None:
         entry = _custom_status(key)
         if entry.get("file"):
@@ -934,7 +941,10 @@ def status_thumb(key):
         else:
             image = compose_preset(build_message_preset(entry["text"], entry["bg"]))
     elif key == "clock":
-        image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
+        if state["settings"]["panel_theme"] == "eightbit":
+            image = panel_themes.eightbit_clock(weather_data, datetime.now())
+        else:
+            image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
     elif key == "dumpster_fire":
         image = media.fire_frames()[0][0]
     elif key == "arcade":
@@ -1152,18 +1162,41 @@ def _parse_revert_minutes(value):
     return value, None
 
 
+@app.route("/api/gif/search")
+def gif_search():
+    """GIF candidates to pick from: [{"url", "preview", "title"}, ...]."""
+    query = str(request.args.get("q") or "")[:60]
+    try:
+        return jsonify(results=media.search_gifs(query))
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)), 502
+
+
 @app.route("/api/gif", methods=["POST"])
-def random_gif():
-    """Fetch a random GIF (optionally for a search) and put it on the panel."""
+def show_gif():
+    """Put a GIF on the panel: a search-picked one ({"url", "title"}) or
+    a random one for a query."""
     data = request.get_json(silent=True) or {}
     minutes, err = _parse_revert_minutes(data.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
-    query = str(data.get("query") or "")[:60]
+    if data.get("url"):
+        try:
+            raw = media.fetch_gif_url(str(data["url"]))
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        except Exception:
+            return jsonify(error="couldn't download that GIF"), 502
+        used_query = str(data.get("title") or "").strip()[:30] or "picked"
+    else:
+        query = str(data.get("query") or "")[:60]
+        try:
+            raw, used_query = media.fetch_random_gif(query)
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 502
     try:
-        raw, used_query = media.fetch_random_gif(query)
         frames = media.frames_from_bytes(raw)
-    except (RuntimeError, ValueError) as exc:
+    except ValueError as exc:
         return jsonify(error=str(exc)), 502
     media.save_current(raw, "gif")
     with lock:
@@ -1175,15 +1208,25 @@ def random_gif():
 
 @app.route("/api/statuses", methods=["POST"])
 def create_custom_status():
-    """Make a new status button: text over a panel color or an uploaded
-    image/GIF (multipart form: text, and bg_color or file)."""
+    """Make a new status button: text over a panel color, an uploaded
+    image/GIF, or a search-picked GIF (multipart form: text, and
+    bg_color, file, or url)."""
     text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
     if not text:
         return jsonify(error="text is required"), 400
     file = request.files.get("file")
+    picked_url = (request.form.get("url") or "").strip()
     status_id = "cs_" + secrets.token_hex(4)
-    if file is not None and file.filename:
-        raw = file.read()
+    if (file is not None and file.filename) or picked_url:
+        if file is not None and file.filename:
+            raw = file.read()
+        else:
+            try:
+                raw = media.fetch_gif_url(picked_url)
+            except ValueError as exc:
+                return jsonify(error=str(exc)), 400
+            except Exception:
+                return jsonify(error="couldn't download that GIF"), 502
         try:
             frames = media.frames_from_bytes(raw)
         except ValueError:

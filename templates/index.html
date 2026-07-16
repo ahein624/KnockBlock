@@ -69,8 +69,6 @@
   [data-theme="glass"] button.status.active {
     box-shadow: 0 0 22px rgba(255, 106, 43, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
-  [data-theme="glass"] .status.active .slabel,
-  [data-theme="glass"] .clockrow.active .ssub,
   [data-theme="glass"] .status.active .scur { color: #fff; }
   [data-theme="glass"] .sheet {
     background: rgba(22, 26, 42, 0.82);
@@ -104,7 +102,6 @@
   [data-theme="clear"] .field-btn,
   [data-theme="clear"] .units button.sel,
   [data-theme="clear"] .chip.sel { font-weight: 600; }
-  [data-theme="clear"] .status.active .slabel { color: #fff; }
   [data-theme="clear"] :focus-visible {
     outline: 3px solid var(--tan);
     outline-offset: 2px;
@@ -238,56 +235,64 @@
   .status-section { display: grid; gap: 10px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   button.status {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 8px 8px 10px;
-    text-align: left;
-    background: var(--raised);
+    position: relative;
+    padding: 0;
+    aspect-ratio: 2 / 1;
+    overflow: hidden;
+    background: #000;
     border: 1px solid var(--edge);
     border-radius: var(--radius);
   }
   .sthumb {
-    display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    aspect-ratio: 2 / 1;
+    height: 100%;
     object-fit: cover;
     image-rendering: pixelated;
     background: #000;
-    border: 1px solid var(--line);
-    border-radius: calc(var(--radius) / 2);
   }
-  .status .srow {
+  /* The vertical name tab: pinned to the left edge, reads bottom-up. */
+  .status .stab {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 6px;
-    padding: 0 4px;
-  }
-  .status .scur {
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px 3px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
     font: 600 10px var(--font-body);
-    letter-spacing: 0.14em;
-    color: var(--tag);
-    visibility: hidden;
-  }
-  .status .slabel {
-    font: 600 15px var(--font-display);
-    color: var(--ink);
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.62);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  button.status.active {
+  .status .scur {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 2px 5px;
+    font: 600 9px var(--font-body);
+    letter-spacing: 0.1em;
+    color: var(--bg);
     background: var(--orange);
+    border-radius: calc(var(--radius) / 2);
+    visibility: hidden;
+  }
+  button.status.active {
     border-color: var(--orange);
+    box-shadow: inset 0 0 0 1px var(--orange);
   }
   .status.active .scur { visibility: visible; }
-  .status.active .slabel { color: var(--bg); }
   .newstatus {
     display: grid;
     place-items: center;
-    min-height: 96px;
+    aspect-ratio: 2 / 1;
     font: 500 13px var(--font-body);
     color: var(--ink-faint);
     background: none;
@@ -303,20 +308,6 @@
     border-radius: var(--radius);
     flex-shrink: 0;
   }
-  button.status.clockrow {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 14px 8px 8px;
-    background: none;
-  }
-  .clockrow .clockthumb { width: 72px; flex-shrink: 0; }
-  .clockrow .slabel { flex: 1; }
-  .clockrow .ssub { font: 400 12px var(--font-body); color: var(--ink-faint); }
-  button.status.clockrow.active { background: var(--orange); border-color: var(--orange); }
-  .clockrow.active .ssub { color: var(--tag); }
-
   /* ---- hold chips ---- */
   .hold-section { display: grid; gap: 10px; }
   .chips {
@@ -400,6 +391,24 @@
   }
   .recent .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .recent .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .gif-results {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .gif-results:empty { display: none; }
+  .gif-results img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #000;
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .gif-results img.sel { outline: 2px solid var(--orange); outline-offset: 1px; }
 
   .upload-btn {
     padding: 12px 16px;
@@ -799,26 +808,29 @@
         {% for key, preset in presets.items() %}
         <button class="status" data-key="{{ key }}">
           <img class="sthumb" data-key="{{ key }}" src="/thumb/{{ key }}.png" alt="" loading="lazy">
-          <span class="srow"><span class="slabel">{{ preset.label }}</span><span class="scur">CURRENT</span></span>
+          <span class="stab">{{ preset.label }}</span>
+          <span class="scur">CURRENT</span>
         </button>
         {% endfor %}
         <button class="status" data-key="dumpster_fire">
           <img class="sthumb" data-key="dumpster_fire" src="/thumb/dumpster_fire.png" alt="" loading="lazy">
-          <span class="srow"><span class="slabel">This Is Fine</span><span class="scur">CURRENT</span></span>
+          <span class="stab">This Is Fine</span>
+          <span class="scur">CURRENT</span>
         </button>
         <button class="status" data-key="arcade">
           <img class="sthumb" data-key="arcade" src="/thumb/arcade.png" alt="" loading="lazy">
-          <span class="srow"><span class="slabel">Game On</span><span class="scur">CURRENT</span></span>
+          <span class="stab">Game On</span>
+          <span class="scur">CURRENT</span>
+        </button>
+        <button class="status" data-key="clock">
+          <img class="sthumb" data-key="clock" src="/thumb/clock.png" alt="" loading="lazy">
+          <span class="stab">Clock &amp; weather</span>
+          <span class="scur">CURRENT</span>
         </button>
         <div id="cs-cells" style="display: contents;"></div>
         {% if not demo %}
         <button class="newstatus" id="new-status-btn">＋ New status</button>
         {% endif %}
-        <button class="status clockrow" data-key="clock">
-          <img class="sthumb clockthumb" data-key="clock" src="/thumb/clock.png" alt="" loading="lazy">
-          <span class="slabel">Clock &amp; weather</span>
-          <span class="ssub">Default when idle</span>
-        </button>
       </div>
     </section>
 
@@ -861,9 +873,10 @@
     <section class="fieldset">
       <h2>GIFs &amp; images</h2>
       <div class="compose-row">
-        <input id="gif-query" class="field-input" maxlength="60" placeholder="Search, or leave blank for a surprise" autocomplete="off" enterkeyhint="go">
+        <input id="gif-query" class="field-input" maxlength="60" placeholder="Search GIFs, or Roll for a surprise" autocomplete="off" enterkeyhint="search">
         <button id="gif-roll" class="field-btn" aria-label="Random GIF">Roll</button>
       </div>
+      <div class="gif-results" id="gif-results"></div>
       <button class="upload-btn" id="upload-btn">Upload an image or GIF</button>
       <button class="upload-btn design" id="design-btn">Design a screen</button>
       <input type="file" id="upload-file" accept="image/*" hidden>
@@ -907,6 +920,12 @@
     </div>
     <button class="upload-btn" id="cs-file-btn">…or over an image / meme / GIF</button>
     <input type="file" id="cs-file" accept="image/*" hidden>
+    <div class="compose-row">
+      <input id="cs-gif-query" type="text" class="field-input" maxlength="60"
+             placeholder="…or search for a meme" autocomplete="off" enterkeyhint="search">
+      <button id="cs-gif-search" class="field-btn">Search</button>
+    </div>
+    <div class="gif-results" id="cs-gif-results"></div>
     <p class="hint" id="cs-file-name" hidden></p>
     <button class="field-btn" id="cs-save" style="justify-content: center;">Add to the grid</button>
     <div class="group" id="cs-list"></div>
@@ -963,14 +982,16 @@
 
     <div class="group">
       <h3>Panel style</h3>
-      <div class="chips" id="panel-theme-chips" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="chips" id="panel-theme-chips" style="grid-template-columns: repeat(2, 1fr);">
         <button class="chip" data-panel-theme="classic">Classic</button>
         <button class="chip" data-panel-theme="overworld">Overworld</button>
         <button class="chip" data-panel-theme="terminal">Terminal</button>
+        <button class="chip" data-panel-theme="eightbit">8-bit</button>
       </div>
       <p class="hint">
-        How statuses draw on the panel itself — this one changes the sign
-        for everyone. Custom messages and the clock keep their own look.
+        How screens draw on the panel itself — this one changes the sign
+        for everyone. 8-bit also restyles the clock and focus screens;
+        custom messages always keep their own look.
       </p>
     </div>
 
@@ -1152,8 +1173,14 @@
       toast._t = setTimeout(() => toast.classList.remove("show"), 2200);
     }
 
+    // In demo mode, taps "work" locally: the preview shows the tapped
+    // status's real render, nothing is sent, and the sign never changes.
+    let demoStatus = null;
+
     function refreshPreview() {
-      preview.src = "/preview.png?t=" + Date.now();
+      preview.src = (DEMO && demoStatus)
+        ? "/thumb/" + demoStatus + ".png?v=" + thumbTheme
+        : "/preview.png?t=" + Date.now();
     }
 
     function renderRecents() {
@@ -1199,14 +1226,21 @@
       if (SOURCE_HINTS[state.source] && !state.sleeping) {
         label += " · " + SOURCE_HINTS[state.source];
       }
+      if (DEMO && demoStatus) {
+        const cs = (state.custom_statuses || []).find((e) => e.id === demoStatus);
+        label = cs ? cs.text : (LABELS[demoStatus] || demoStatus);
+      }
+      const displayStatus = (DEMO && demoStatus) ? demoStatus : state.status;
       // The badge doubles as the release-to-auto control; so does the
       // "Hold it there" subtitle while something is held. A scheduled
       // status borrows the badge as a read-only "why" indicator.
       const scheduled = state.source === "schedule";
-      $("held-badge").hidden = !(state.held || scheduled);
-      $("held-txt").textContent = state.held
+      $("held-badge").hidden = !(state.held || scheduled || (DEMO && demoStatus));
+      $("held-txt").textContent = (DEMO && demoStatus)
         ? label + " · held"
-        : (state.schedule_label || label) + " · scheduled";
+        : state.held
+          ? label + " · held"
+          : (state.schedule_label || label) + " · scheduled";
       const holdSub = $("hold-sub");
       holdSub.textContent = state.held ? "Back to auto now" : "Then back to auto";
       holdSub.classList.toggle("act", !!state.held);
@@ -1227,7 +1261,7 @@
 
       renderCustomStatuses();
       document.querySelectorAll("#grid button.status").forEach((b) => {
-        b.classList.toggle("active", b.dataset.key === state.status);
+        b.classList.toggle("active", b.dataset.key === displayStatus);
       });
 
       // Focus chips: highlight the running timer (even while a call
@@ -1471,8 +1505,51 @@
         btn.classList.remove("busy");
       }
     });
-    $("gif-query").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") $("gif-roll").click();
+    /* ---- GIF search & pick ---- */
+    async function searchGifs(query) {
+      const res = await fetch("/api/gif/search?q=" + encodeURIComponent(query));
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Search failed");
+      return body.results;
+    }
+
+    function fillGifGrid(box, results, onPick) {
+      box.innerHTML = "";
+      results.forEach((result) => {
+        const img = document.createElement("img");
+        img.src = result.preview;
+        img.alt = result.title || "GIF";
+        img.title = result.title || "";
+        img.loading = "lazy";
+        img.addEventListener("click", () => onPick(result, img));
+        box.appendChild(img);
+      });
+    }
+
+    $("gif-query").addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter") return;
+      event.target.blur();
+      buzz();
+      try {
+        const results = await searchGifs($("gif-query").value.trim());
+        fillGifGrid($("gif-results"), results, async (result) => {
+          buzz();
+          try {
+            const res = await fetch("/api/gif", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(withTimer({ url: result.url, title: result.title })),
+            });
+            await showMediaResponse(res);
+            $("gif-results").innerHTML = "";
+            $("gif-query").value = "";
+          } catch (err) {
+            showToast(err.message || "Couldn't show that GIF", true);
+          }
+        });
+      } catch (err) {
+        showToast(err.message || "Search failed", true);
+      }
     });
 
     $("upload-btn").addEventListener("click", () => $("upload-file").click());
@@ -1548,16 +1625,13 @@
         img.className = "sthumb";
         img.alt = "";
         img.src = "/thumb/" + entry.id + ".png?v=" + encodeURIComponent(entry.text);
-        const row = document.createElement("span");
-        row.className = "srow";
-        const label = document.createElement("span");
-        label.className = "slabel";
-        label.textContent = entry.text;
+        const tab = document.createElement("span");
+        tab.className = "stab";
+        tab.textContent = entry.text;
         const tag = document.createElement("span");
         tag.className = "scur";
         tag.textContent = "CURRENT";
-        row.append(label, tag);
-        cell.append(img, row);
+        cell.append(img, tab, tag);
         box.appendChild(cell);
       });
       renderCsList();
@@ -1609,11 +1683,39 @@
     }
     statusEditor.querySelector(".grabber").addEventListener("click", closeStatusEditor);
 
+    let csPickedGif = null;  // search-picked background for a new status
+
     $("cs-file-btn").addEventListener("click", () => $("cs-file").click());
     $("cs-file").addEventListener("change", () => {
       const file = $("cs-file").files[0];
+      if (file) {
+        csPickedGif = null;
+        $("cs-gif-results").innerHTML = "";
+      }
       $("cs-file-name").hidden = !file;
       $("cs-file-name").textContent = file ? "Background: " + file.name : "";
+    });
+
+    async function csGifSearch() {
+      buzz();
+      try {
+        const results = await searchGifs($("cs-gif-query").value.trim());
+        fillGifGrid($("cs-gif-results"), results, (result, img) => {
+          buzz();
+          csPickedGif = result;
+          $("cs-file").value = "";
+          document.querySelectorAll("#cs-gif-results img").forEach((i) =>
+            i.classList.toggle("sel", i === img));
+          $("cs-file-name").hidden = false;
+          $("cs-file-name").textContent = "Background: " + (result.title || "picked GIF");
+        });
+      } catch (err) {
+        showToast(err.message || "Search failed", true);
+      }
+    }
+    $("cs-gif-search").addEventListener("click", csGifSearch);
+    $("cs-gif-query").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.target.blur(); csGifSearch(); }
     });
 
     $("cs-save").addEventListener("click", async () => {
@@ -1625,6 +1727,8 @@
       const file = $("cs-file").files[0];
       if (file) {
         form.append("file", file);
+      } else if (csPickedGif) {
+        form.append("url", csPickedGif.url);
       } else {
         form.append("bg_color", document.querySelector('input[name="cs-color"]:checked').value);
       }
@@ -1636,6 +1740,9 @@
         $("cs-text").value = "";
         $("cs-file").value = "";
         $("cs-file-name").hidden = true;
+        $("cs-gif-query").value = "";
+        $("cs-gif-results").innerHTML = "";
+        csPickedGif = null;
         renderState();
         closeStatusEditor();
       } catch (err) {
@@ -1895,6 +2002,14 @@
 
     function pressStatus(key) {
       buzz();
+      if (DEMO) {
+        // Spectators drive a local illusion — nothing is sent, and the
+        // real sign never notices.
+        demoStatus = key;
+        renderState();
+        refreshPreview();
+        return;
+      }
       // Optimistic: reflect the tap instantly, reconcile with the response.
       state.status = key;
       state.sleeping = false;

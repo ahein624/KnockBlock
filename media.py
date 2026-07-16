@@ -537,6 +537,82 @@ def _giphy_random(query, key=None):
     return _download(pick["url"])
 
 
+# Picked results may only be downloaded from the providers' own CDNs —
+# the select call passes a URL back, and it must not become a free proxy.
+GIF_URL_HOSTS = (".tenor.com", ".giphy.com")
+
+
+def gif_url_allowed(url):
+    if not isinstance(url, str) or not url.startswith("https://"):
+        return False
+    host = urllib.parse.urlparse(url).hostname or ""
+    return any(host == suffix.lstrip(".") or host.endswith(suffix)
+               for suffix in GIF_URL_HOSTS)
+
+
+def fetch_gif_url(url):
+    """Download a search-picked GIF. ValueError for off-CDN URLs."""
+    if not gif_url_allowed(url):
+        raise ValueError("that URL isn't from a known GIF provider")
+    return _download(url)
+
+
+def _tenor_search(query, limit):
+    url = "https://g.tenor.com/v1/search?" + urllib.parse.urlencode(
+        {"q": query, "key": TENOR_KEY, "limit": limit, "media_filter": "minimal"}
+    )
+    results = []
+    for item in _get_json(url).get("results") or []:
+        media_entry = item["media"][0]
+        gif = media_entry.get("nanogif") or media_entry.get("tinygif") or media_entry.get("gif")
+        preview = media_entry.get("tinygif") or gif
+        if gif:
+            results.append({
+                "url": gif["url"],
+                "preview": preview["url"],
+                "title": item.get("content_description", "")[:60],
+            })
+    return results
+
+
+def _giphy_search(query, key, limit):
+    url = "https://api.giphy.com/v1/gifs/search?" + urllib.parse.urlencode(
+        {"api_key": key or GIPHY_KEY, "q": query, "limit": limit, "rating": "pg"}
+    )
+    results = []
+    for item in _get_json(url).get("data") or []:
+        images = item["images"]
+        pick = images.get("fixed_height_small") or images.get("downsized") or images.get("original")
+        preview = images.get("fixed_height_small") or pick
+        if pick:
+            results.append({
+                "url": pick["url"],
+                "preview": preview["url"],
+                "title": (item.get("title") or "")[:60],
+            })
+    return results
+
+
+def search_gifs(query, limit=12):
+    """GIF candidates for a query: [{"url", "preview", "title"}, ...].
+    Personal Giphy key first, then the public demo keys."""
+    query = (query or "").strip() or random.choice(FUNNY_QUERIES)
+    providers = []
+    personal = auth.giphy_key()
+    if personal:
+        providers.append(lambda q: _giphy_search(q, personal, limit))
+    providers += [lambda q: _tenor_search(q, limit),
+                  lambda q: _giphy_search(q, None, limit)]
+    for provider in providers:
+        try:
+            results = provider(query)
+            if results:
+                return results
+        except Exception:
+            continue
+    raise RuntimeError("couldn't search for GIFs (providers unreachable)")
+
+
 def fetch_random_gif(query=None):
     """Random GIF bytes for a query (or a random funny one).
 
