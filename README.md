@@ -45,6 +45,12 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   translucent, modern), *Workshop* (the warm house style), or *Clear*
   (high-contrast, plain, accessibility-first). Stored in a cookie the
   server reads, so pages load in your theme with no flash
+- **Panel styles** — sign-wide, in Settings → Panel style: *Classic* flat
+  cards, *Overworld* (statuses on floating blocks over the arcade level),
+  *Terminal* (green-phosphor console with scanlines), or *8-bit* (pixel
+  icon cards — headset, sun, meeting heads, do-not-enter — with the clock
+  and focus screens drawn to match: sun or moon by hour, hourglass timer).
+  All original pixel art; the status buttons preview whichever is active
 - **Password login** — everything (UI and API) requires either a logged-in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,

@@ -484,6 +484,7 @@ def _render_current(force=False):
             now_dt.strftime("%H:%M"),
             weather_data["temp"] if weather_data else None,
             weather_data["code"] if weather_data else None,
+            state["settings"]["panel_theme"],
         )
     else:
         signature = ("preset", status, state["settings"]["panel_theme"])
@@ -506,7 +507,10 @@ def _render_current(force=False):
     elif signature[0] == "custom":
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
-        display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
+        if state["settings"]["panel_theme"] == "eightbit":
+            display.play_frames([(panel_themes.eightbit_focus(signature[1]), 1.0)])
+        else:
+            display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
     elif signature[0] == "cstatus":
         entry = _custom_status(status)
         if entry.get("file"):
@@ -514,13 +518,16 @@ def _render_current(force=False):
         else:
             display.render_preset(build_message_preset(entry["text"], entry["bg"]))
     elif signature[0] == "clock":
-        display.render_preset(weather.clock_preset(weather_data, now_dt))
+        if signature[4] == "eightbit":
+            display.play_frames([(panel_themes.eightbit_clock(weather_data, now_dt), 1.0)])
+        else:
+            display.render_preset(weather.clock_preset(weather_data, now_dt))
     elif signature[2] == "classic":
         display.render_preset(PRESETS[status])
     else:
         # A themed preset is a composed scene; a one-frame "animation"
         # shows it and stops whatever was looping before.
-        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2]), 1.0)])
+        display.play_frames([(panel_themes.compose(PRESETS[status], signature[2], status), 1.0)])
 
 
 def _remember_message(text, color):
@@ -923,7 +930,7 @@ def status_thumb(key):
     time); fire and arcade use their first animation frame.
     """
     if key in PRESETS:
-        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"])
+        image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"], key)
     elif _custom_status(key) is not None:
         entry = _custom_status(key)
         if entry.get("file"):
@@ -934,7 +941,10 @@ def status_thumb(key):
         else:
             image = compose_preset(build_message_preset(entry["text"], entry["bg"]))
     elif key == "clock":
-        image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
+        if state["settings"]["panel_theme"] == "eightbit":
+            image = panel_themes.eightbit_clock(weather_data, datetime.now())
+        else:
+            image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
     elif key == "dumpster_fire":
         image = media.fire_frames()[0][0]
     elif key == "arcade":
