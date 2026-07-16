@@ -27,6 +27,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   Disturb), rendered with auto-fitted text on the panel
 - **Custom messages** — type anything (leading emoji becomes the icon), pick a
   background color; recent messages become one-tap chips
+- **Custom statuses** — build your own status buttons (up to 8): text over
+  a panel color, or captioned over an uploaded image/meme/GIF. They join
+  the status grid with real-render thumbnails, work from the Stream Deck
+  (`/api/set/cs_…`), and deleting one that's showing releases to auto
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
   live countdown; survives restarts
 - **Live preview** — the phone UI mirrors exactly what the panel shows
@@ -185,6 +189,10 @@ or `?token=<token>`:
   wins
 - `GET /api/insights?days=7` — seconds per status per local day plus
   totals, from the on-device history (max 31 days; blocked in demo mode)
+- `POST /api/statuses` — create a custom status (multipart: `text`, and
+  `bg_color` or an image/GIF `file`); `DELETE /api/statuses/<id>` removes
+  one (releasing the sign if it's showing). Set them like any status:
+  `{"status": "cs_…"}` or `/api/set/cs_…`
 - `POST /api/oncall` — `{"active": true|false}` heartbeat from a laptop
   sensor; the status clears itself 15s after the last `true`
 - `POST /api/gif` — `{"query": "dancing cat", "revert_minutes": 15}` (both
