@@ -11,33 +11,33 @@ PRESETS = {
         "label": "On a call",
         "emoji": "\U0001F4DE",  # 📞
         "lines": ["ON A", "CALL"],
-        "bg_color": (120, 0, 0),
+        "bg_color": (184, 0,  7),
         "text_color": (255, 255, 255),
-        "ui_color": "#e5484d",
+        "ui_color": "#5F935D",
     },
     "free": {
         "label": "Free",
-        "emoji": "✅",  # ✅
+        "emoji": "🎉",  # 🎉
         "lines": ["FREE"],
-        "bg_color": (0, 90, 0),
+        "bg_color": (77, 149, 87),
         "text_color": (255, 255, 255),
         "ui_color": "#30a46c",
     },
     "in_a_meeting": {
         "label": "In a meeting",
-        "emoji": "\U0001F465",  # 👥
+        "emoji": "\U0001F4C5",  # 📅
         "lines": ["IN A", "MEETING"],
         "bg_color": (150, 90, 0),
         "text_color": (255, 255, 255),
-        "ui_color": "#e8912d",
+        "ui_color": "#274B9B",
     },
     "do_not_disturb": {
         "label": "Do not disturb",
-        "emoji": "\U0001F6AB",  # 🚫
+        "emoji": "☢️",  # ☢️
         "lines": ["DO NOT", "DISTURB"],
-        "bg_color": (90, 0, 110),
+        "bg_color": (142, 31, 123),
         "text_color": (255, 255, 255),
-        "ui_color": "#8e4ec6",
+        "ui_color": "#A81919",
     },
 }
 
@@ -48,7 +48,7 @@ DEFAULT_PRESET = "free"
 FOCUS_STATUS = {
     "label": "Focus",
     "emoji": "\U0001F3AF",  # 🎯
-    "bg_color": (0, 45, 110),
+    "bg_color": (26, 76, 161),
     "text_color": (255, 255, 255),
     "ui_color": "#6366f1",
 }
@@ -56,11 +56,11 @@ FOCUS_STATUS = {
 # Background colors selectable for custom messages. `led` is what the panel
 # shows; `ui` is the matching swatch color in the phone UI.
 MESSAGE_COLORS = {
-    "blue": {"led": (0, 45, 110), "ui": "#3b82f6"},
-    "green": {"led": (0, 90, 0), "ui": "#30a46c"},
+    "blue": {"led": (26, 76, 161), "ui": "#274B9B"},
+    "green": {"led": (77, 149, 87), "ui": "#5F935D"},
     "orange": {"led": (150, 90, 0), "ui": "#e8912d"},
-    "red": {"led": (120, 0, 0), "ui": "#e5484d"},
-    "purple": {"led": (90, 0, 110), "ui": "#8e4ec6"},
+    "red": {"led": (184, 0,  7), "ui": "#A81919},
+    "purple": {"led": (142, 31, 123), "ui": "#8e4ec6"},
 }
 
 DEFAULT_MESSAGE_COLOR = "blue"
