@@ -284,6 +284,25 @@
   }
   .status.active .scur { visibility: visible; }
   .status.active .slabel { color: var(--bg); }
+  .newstatus {
+    display: grid;
+    place-items: center;
+    min-height: 96px;
+    font: 500 13px var(--font-body);
+    color: var(--ink-faint);
+    background: none;
+    border: 1px dashed var(--edge);
+    border-radius: var(--radius);
+  }
+  .cs-del {
+    padding: 6px 9px;
+    font: 600 12px var(--font-body);
+    color: var(--ink-soft);
+    background: none;
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    flex-shrink: 0;
+  }
   button.status.clockrow {
     grid-column: 1 / -1;
     flex-direction: row;
@@ -791,6 +810,10 @@
           <img class="sthumb" data-key="arcade" src="/thumb/arcade.png" alt="" loading="lazy">
           <span class="srow"><span class="slabel">Game On</span><span class="scur">CURRENT</span></span>
         </button>
+        <div id="cs-cells" style="display: contents;"></div>
+        {% if not demo %}
+        <button class="newstatus" id="new-status-btn">＋ New status</button>
+        {% endif %}
         <button class="status clockrow" data-key="clock">
           <img class="sthumb clockthumb" data-key="clock" src="/thumb/clock.png" alt="" loading="lazy">
           <span class="slabel">Clock &amp; weather</span>
@@ -867,6 +890,29 @@
   </main>
 
   <div class="sheet-backdrop" id="sheet-backdrop"></div>
+
+  <section class="sheet" id="status-editor" role="dialog" aria-modal="true" aria-label="New status">
+    <div class="grabber"></div>
+    <h2>New status</h2>
+    <input id="cs-text" type="text" class="field-input" maxlength="40"
+           placeholder="What the panel should say" autocomplete="off">
+    <div class="inkrow">
+      <span class="lbl">On a color</span>
+      {% for name, color in message_colors.items() %}
+      <label class="swatch">
+        <input type="radio" name="cs-color" value="{{ name }}" {% if loop.first %}checked{% endif %}>
+        <span style="--c: {{ color.ui }};"></span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="upload-btn" id="cs-file-btn">…or over an image / meme / GIF</button>
+    <input type="file" id="cs-file" accept="image/*" hidden>
+    <p class="hint" id="cs-file-name" hidden></p>
+    <button class="field-btn" id="cs-save" style="justify-content: center;">Add to the grid</button>
+    <div class="group" id="cs-list"></div>
+    <p class="hint">A leading emoji becomes the icon on color backgrounds.
+      Up to 8; deleting one that's showing releases the sign to auto.</p>
+  </section>
 
   <section class="sheet" id="designer" role="dialog" aria-modal="true" aria-label="Screen designer">
     <div class="grabber"></div>
@@ -973,6 +1019,14 @@
         <span class="sep">to</span>
         <input type="time" id="sleep-end">
       </div>
+      <div class="chips" id="sleep-scene-chips" style="grid-template-columns: repeat(2, 1fr);">
+        <button class="chip" data-scene="dark">Dark</button>
+        <button class="chip" data-scene="moon">Moonlight</button>
+      </div>
+      <p class="hint">
+        Moonlight keeps a very dim night scene on the panel — a moon, a
+        few stars, and a cat who has the right idea.
+      </p>
     </div>
 
     <div class="group">
@@ -1139,7 +1193,8 @@
       } else if (state.showing_weather && state.weather) {
         label = state.weather.temp + "° · after hours";
       } else {
-        label = LABELS[state.status] || state.status;
+        const cs = (state.custom_statuses || []).find((e) => e.id === state.status);
+        label = cs ? cs.text : (LABELS[state.status] || state.status);
       }
       if (SOURCE_HINTS[state.source] && !state.sleeping) {
         label += " · " + SOURCE_HINTS[state.source];
@@ -1165,9 +1220,12 @@
       const ss = $("sleep-start"), se = $("sleep-end");
       if (document.activeElement !== ss) ss.value = settings.sleep_start || "22:00";
       if (document.activeElement !== se) se.value = settings.sleep_end || "07:00";
+      document.querySelectorAll("#sleep-scene-chips .chip").forEach((c) =>
+        c.classList.toggle("sel", c.dataset.scene === (settings.sleep_scene || "dark")));
       document.querySelectorAll(".units button").forEach((b) =>
         b.classList.toggle("sel", b.dataset.u === (settings.units || "f")));
 
+      renderCustomStatuses();
       document.querySelectorAll("#grid button.status").forEach((b) => {
         b.classList.toggle("active", b.dataset.key === state.status);
       });
@@ -1380,9 +1438,10 @@
     // GIFs animate on the panel; keep the phone preview roughly in sync.
     const ANIMATED = ["media", "dumpster_fire", "arcade"];
     setInterval(() => {
-      if (!document.hidden && ANIMATED.includes(state.status)) {
-        refreshPreview();
-      }
+      const animated = ANIMATED.includes(state.status)
+        || state.status.startsWith("cs_")  // GIF-backed custom statuses
+        || state.sleeping;
+      if (!document.hidden && animated) refreshPreview();
     }, 1500);
 
     async function showMediaResponse(res) {
@@ -1468,8 +1527,121 @@
       document.body.classList.remove("locked");
     }
     if ($("gear")) $("gear").addEventListener("click", () => { buzz(); openSheet(); });
-    backdrop.addEventListener("click", () => { closeSheet(); closeDesigner(); });
+    backdrop.addEventListener("click", () => { closeSheet(); closeDesigner(); closeStatusEditor(); });
     sheet.querySelector(".grabber").addEventListener("click", closeSheet);
+
+    /* ---- custom statuses ---- */
+    const statusEditor = $("status-editor");
+
+    function renderCustomStatuses() {
+      const box = $("cs-cells");
+      const list = state.custom_statuses || [];
+      const sig = JSON.stringify(list);
+      if (box.dataset.sig === sig) return;
+      box.dataset.sig = sig;
+      box.innerHTML = "";
+      list.forEach((entry) => {
+        const cell = document.createElement("button");
+        cell.className = "status";
+        cell.dataset.key = entry.id;
+        const img = document.createElement("img");
+        img.className = "sthumb";
+        img.alt = "";
+        img.src = "/thumb/" + entry.id + ".png?v=" + encodeURIComponent(entry.text);
+        const row = document.createElement("span");
+        row.className = "srow";
+        const label = document.createElement("span");
+        label.className = "slabel";
+        label.textContent = entry.text;
+        const tag = document.createElement("span");
+        tag.className = "scur";
+        tag.textContent = "CURRENT";
+        row.append(label, tag);
+        cell.append(img, row);
+        box.appendChild(cell);
+      });
+      renderCsList();
+    }
+
+    function renderCsList() {
+      const box = $("cs-list");
+      if (!box) return;
+      box.innerHTML = "";
+      (state.custom_statuses || []).forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "setting-row";
+        const name = document.createElement("span");
+        name.textContent = entry.text;
+        const del = document.createElement("button");
+        del.className = "cs-del";
+        del.textContent = "✕";
+        del.setAttribute("aria-label", "Delete " + entry.text);
+        del.addEventListener("click", async () => {
+          buzz();
+          try {
+            const res = await fetch("/api/statuses/" + entry.id, { method: "DELETE" });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body.error || "Request failed");
+            state = body;
+            renderState();
+            refreshPreview();
+          } catch (err) {
+            showToast(err.message || "Couldn't delete it", true);
+          }
+        });
+        row.append(name, del);
+        box.appendChild(row);
+      });
+    }
+
+    function openStatusEditor() {
+      statusEditor.classList.add("open");
+      backdrop.classList.add("open");
+      document.body.classList.add("locked");
+    }
+    function closeStatusEditor() {
+      statusEditor.classList.remove("open");
+      backdrop.classList.remove("open");
+      document.body.classList.remove("locked");
+    }
+    if ($("new-status-btn")) {
+      $("new-status-btn").addEventListener("click", () => { buzz(); openStatusEditor(); });
+    }
+    statusEditor.querySelector(".grabber").addEventListener("click", closeStatusEditor);
+
+    $("cs-file-btn").addEventListener("click", () => $("cs-file").click());
+    $("cs-file").addEventListener("change", () => {
+      const file = $("cs-file").files[0];
+      $("cs-file-name").hidden = !file;
+      $("cs-file-name").textContent = file ? "Background: " + file.name : "";
+    });
+
+    $("cs-save").addEventListener("click", async () => {
+      const text = $("cs-text").value.trim();
+      if (!text) { showToast("Type what the panel should say", true); return; }
+      buzz();
+      const form = new FormData();
+      form.append("text", text);
+      const file = $("cs-file").files[0];
+      if (file) {
+        form.append("file", file);
+      } else {
+        form.append("bg_color", document.querySelector('input[name="cs-color"]:checked').value);
+      }
+      try {
+        const res = await fetch("/api/statuses", { method: "POST", body: form });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Request failed");
+        state = body;
+        $("cs-text").value = "";
+        $("cs-file").value = "";
+        $("cs-file-name").hidden = true;
+        renderState();
+        closeStatusEditor();
+      } catch (err) {
+        showToast(err.message || "Couldn't add the status", true);
+      }
+    });
 
     /* ---- screen designer ---- */
     const designer = $("designer");
@@ -1702,6 +1874,13 @@
       if (!chip) return;
       buzz();
       sendUpdate({ settings: { panel_theme: chip.dataset.panelTheme } });
+    });
+
+    $("sleep-scene-chips").addEventListener("click", (event) => {
+      const chip = event.target.closest(".chip");
+      if (!chip) return;
+      buzz();
+      sendUpdate({ settings: { sleep_scene: chip.dataset.scene } });
     });
 
     function withTimer(partial) {

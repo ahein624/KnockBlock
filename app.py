@@ -42,6 +42,8 @@ STATE_FILE = Path(__file__).resolve().parent / "state.json"
 MAX_MESSAGE_LENGTH = 80
 MAX_SIGN_NAME = 40
 MAX_SCHEDULES = 20
+MAX_CUSTOM_STATUSES = 8
+CUSTOM_STATUS_ID_RE = re.compile(r"^cs_[0-9a-f]{8}$")
 MAX_RECENTS = 6
 MAX_REVERT_MINUTES = 12 * 60
 PREVIEW_SCALE = 6
@@ -68,6 +70,7 @@ DEFAULT_SETTINGS = {
     "sleep_enabled": False,
     "sleep_start": "22:00",
     "sleep_end": "07:00",
+    "sleep_scene": "dark",  # "dark" = panel off, "moon" = dim night scene
     "ical_url": None,  # Google Calendar secret iCal address
     "manual_ttl_minutes": 120,  # 0 = manual presses hold forever
 }
@@ -117,8 +120,16 @@ state = {
     "brightness": 70,
     "recents": [],
     "schedules": [],  # recurring rules; see _valid_schedule for the shape
+    "custom_statuses": [],  # user-made: {"id","text"} + "bg" color or "file" flag
     "settings": dict(DEFAULT_SETTINGS),
 }
+
+
+def _custom_status(status_id):
+    for entry in state["custom_statuses"]:
+        if entry["id"] == status_id:
+            return entry
+    return None
 
 
 def _valid_color(color):
@@ -182,6 +193,26 @@ def _load_state():
     except (FileNotFoundError, ValueError):
         return
 
+    # Custom statuses first: the manual-hold check below may point at one.
+    entries = saved.get("custom_statuses")
+    if isinstance(entries, list):
+        kept = []
+        for entry in entries:
+            if not (isinstance(entry, dict)
+                    and isinstance(entry.get("id"), str)
+                    and CUSTOM_STATUS_ID_RE.match(entry["id"])
+                    and isinstance(entry.get("text"), str) and entry["text"].strip()):
+                continue
+            text = entry["text"].strip()[:MAX_SIGN_NAME]
+            if entry.get("file"):
+                if media.status_media_path(entry["id"]) is None:
+                    continue  # background image is gone; drop the status
+                kept.append({"id": entry["id"], "text": text, "file": True})
+            else:
+                kept.append({"id": entry["id"], "text": text,
+                             "bg": _valid_color(entry.get("bg"))})
+        state["custom_statuses"] = kept[:MAX_CUSTOM_STATUSES]
+
     global media_frames
     manual = saved.get("manual")
     if isinstance(manual, dict):
@@ -189,7 +220,8 @@ def _load_state():
         message = _valid_message(manual.get("message"))
         until = manual.get("until")
         ok = (status in list(PRESETS) + ["clock", "dumpster_fire", "arcade"]
-              or (status == "custom" and message))
+              or (status == "custom" and message)
+              or (isinstance(status, str) and _custom_status(status) is not None))
         if status == "media":
             media_frames = media.load_current()
             ok = media_frames is not None
@@ -274,6 +306,8 @@ def _load_state():
             merged["sign_name"] = name.strip()[:MAX_SIGN_NAME]
         if settings.get("panel_theme") in panel_themes.PANEL_THEMES:
             merged["panel_theme"] = settings["panel_theme"]
+        if settings.get("sleep_scene") in ("dark", "moon"):
+            merged["sleep_scene"] = settings["sleep_scene"]
         state["settings"] = merged
 
 
@@ -428,7 +462,7 @@ def _render_current(force=False):
     source, status, message, _ = _arbitrate(time.time())
     _record_transition(source, status)
     if _sleeping(source, status, now_dt):
-        signature = ("sleep",)
+        signature = ("sleep", state["settings"]["sleep_scene"])
     elif status == "media":
         signature = ("media", media_generation)
     elif status == "dumpster_fire":
@@ -439,6 +473,11 @@ def _render_current(force=False):
         signature = ("custom", message["text"], message["color"])
     elif status == "focus":
         signature = ("focus", _focus_countdown(time.time()))
+    elif _custom_status(status) is not None:
+        entry = _custom_status(status)
+        backdrop = (media.status_media_path(status).stat().st_mtime
+                    if entry.get("file") else entry.get("bg"))
+        signature = ("cstatus", status, entry["text"], backdrop)
     elif status == "clock" or _idle_clock_active(source, now_dt):
         signature = (
             "clock",
@@ -454,7 +493,10 @@ def _render_current(force=False):
     render_signature = signature
 
     if signature[0] == "sleep":
-        display.render_preset(SLEEP_PRESET)
+        if signature[1] == "moon":
+            display.play_frames(media.quiet_frames())
+        else:
+            display.render_preset(SLEEP_PRESET)
     elif signature[0] == "media":
         display.play_frames(media_frames or [])
     elif signature[0] == "fire":
@@ -465,6 +507,12 @@ def _render_current(force=False):
         display.render_preset(build_message_preset(message["text"], message["color"]))
     elif signature[0] == "focus":
         display.render_preset({**FOCUS_STATUS, "lines": ["FOCUS", signature[1]]})
+    elif signature[0] == "cstatus":
+        entry = _custom_status(status)
+        if entry.get("file"):
+            display.play_frames(media.status_frames(entry) or [])
+        else:
+            display.render_preset(build_message_preset(entry["text"], entry["bg"]))
     elif signature[0] == "clock":
         display.render_preset(weather.clock_preset(weather_data, now_dt))
     elif signature[2] == "classic":
@@ -555,6 +603,9 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        # Custom statuses show in the grid for everyone — the panel itself
+        # is public in demo mode, so their thumbs already are too.
+        "custom_statuses": state["custom_statuses"],
         # Spectators don't get the schedule list (labels are personal).
         "schedules": [] if demo else state["schedules"],
         "schedule_label": (
@@ -873,6 +924,15 @@ def status_thumb(key):
     """
     if key in PRESETS:
         image = panel_themes.compose(PRESETS[key], state["settings"]["panel_theme"])
+    elif _custom_status(key) is not None:
+        entry = _custom_status(key)
+        if entry.get("file"):
+            frames = media.status_frames(entry)
+            if frames is None:
+                return jsonify(error="background missing"), 404
+            image = frames[0][0]
+        else:
+            image = compose_preset(build_message_preset(entry["text"], entry["bg"]))
     elif key == "clock":
         image = compose_preset(weather.clock_preset(weather_data, datetime.now()))
     elif key == "dumpster_fire":
@@ -977,6 +1037,10 @@ def set_state():
                 if incoming["panel_theme"] not in panel_themes.PANEL_THEMES:
                     return jsonify(error="unknown panel_theme"), 400
                 settings["panel_theme"] = incoming["panel_theme"]
+            if "sleep_scene" in incoming:
+                if incoming["sleep_scene"] not in ("dark", "moon"):
+                    return jsonify(error="sleep_scene must be 'dark' or 'moon'"), 400
+                settings["sleep_scene"] = incoming["sleep_scene"]
             _render_current()
 
         if "schedules" in data:
@@ -1016,7 +1080,8 @@ def set_state():
                 status = "clock"
             if status == "auto":
                 state["manual"] = None  # release the hold; autodetect takes over
-            elif status in ("clock", "dumpster_fire", "arcade") or status in PRESETS:
+            elif (status in ("clock", "dumpster_fire", "arcade") or status in PRESETS
+                  or (isinstance(status, str) and _custom_status(status) is not None)):
                 _set_manual(status, None, minutes)
             else:
                 return jsonify(error="unknown status"), 400
@@ -1064,7 +1129,8 @@ def quick_set(status):
         elif status == "focus":
             minutes = minutes or 25
             state["focus"] = {"until": time.time() + minutes * 60, "minutes": minutes}
-        elif status in ("clock", "dumpster_fire", "arcade") or status in PRESETS:
+        elif (status in ("clock", "dumpster_fire", "arcade") or status in PRESETS
+              or _custom_status(status) is not None):
             _set_manual(status, None, minutes)
         else:
             return jsonify(error="unknown status"), 400
@@ -1102,6 +1168,51 @@ def random_gif():
     media.save_current(raw, "gif")
     with lock:
         _set_media(frames, {"kind": "gif", "label": f"GIF · {used_query}"}, minutes)
+        _render_current()
+        _save_state()
+        return jsonify(_api_payload())
+
+
+@app.route("/api/statuses", methods=["POST"])
+def create_custom_status():
+    """Make a new status button: text over a panel color or an uploaded
+    image/GIF (multipart form: text, and bg_color or file)."""
+    text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
+    if not text:
+        return jsonify(error="text is required"), 400
+    file = request.files.get("file")
+    status_id = "cs_" + secrets.token_hex(4)
+    if file is not None and file.filename:
+        raw = file.read()
+        try:
+            frames = media.frames_from_bytes(raw)
+        except ValueError:
+            return jsonify(error="that doesn't look like an image or GIF"), 400
+        media.save_status_media(status_id, raw, "gif" if len(frames) > 1 else "image")
+        entry = {"id": status_id, "text": text, "file": True}
+    else:
+        entry = {"id": status_id, "text": text,
+                 "bg": _valid_color(request.form.get("bg_color"))}
+    with lock:
+        if len(state["custom_statuses"]) >= MAX_CUSTOM_STATUSES:
+            media.delete_status_media(status_id)
+            return jsonify(error=f"that's the lot — {MAX_CUSTOM_STATUSES} custom statuses max"), 400
+        state["custom_statuses"].append(entry)
+        _save_state()
+        return jsonify(_api_payload())
+
+
+@app.route("/api/statuses/<status_id>", methods=["DELETE"])
+def delete_custom_status(status_id):
+    with lock:
+        entry = _custom_status(status_id)
+        if entry is None:
+            return jsonify(error="no such status"), 404
+        state["custom_statuses"].remove(entry)
+        manual = state["manual"]
+        if manual and manual["status"] == status_id:
+            state["manual"] = None  # it was showing; back to auto
+        media.delete_status_media(status_id)
         _render_current()
         _save_state()
         return jsonify(_api_payload())
