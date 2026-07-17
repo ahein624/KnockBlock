@@ -28,9 +28,11 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
 - **Custom messages** — type anything (leading emoji becomes the icon), pick a
   background color; recent messages become one-tap chips
 - **Custom statuses** — build your own status buttons (up to 8): text over
-  a panel color, or captioned over an uploaded image/meme/GIF. They join
-  the status grid with real-render thumbnails, work from the Stream Deck
-  (`/api/set/cs_…`), and deleting one that's showing releases to auto
+  a panel color, or over an uploaded image/meme/GIF — captioned, or with
+  the caption switched off so the GIF plays bare (the text then just names
+  the button). They join the status grid with real-render thumbnails, work
+  from the Stream Deck (`/api/set/cs_…`), and deleting one that's showing
+  releases to auto
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
   live countdown; survives restarts
 - **Live preview** — the phone UI mirrors exactly what the panel shows
@@ -46,11 +48,13 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   (high-contrast, plain, accessibility-first). Stored in a cookie the
   server reads, so pages load in your theme with no flash
 - **Panel styles** — sign-wide, in Settings → Panel style: *Classic* flat
-  cards, *Overworld* (statuses on floating blocks over the arcade level),
-  *Terminal* (green-phosphor console with scanlines), or *8-bit* (pixel
-  icon cards — headset, sun, meeting heads, do-not-enter — with the clock
-  and focus screens drawn to match: sun or moon by hour, hourglass timer).
-  All original pixel art; the status buttons preview whichever is active
+  cards, *Nameplate* (skeuomorphic brushed-metal shop plates — beveled
+  edges, corner screws, engraved text, a glowing indicator lamp in the
+  status color), *Terminal* (green-phosphor console with scanlines), or
+  *8-bit* (pixel icon cards — headset, sun, meeting heads, do-not-enter —
+  with the clock and focus screens drawn to match: sun or moon by hour,
+  hourglass timer). All original art; the status buttons preview whichever
+  is active
 - **Password login** — everything (UI and API) requires either a logged-in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,

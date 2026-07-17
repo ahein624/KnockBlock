@@ -207,7 +207,10 @@ def _load_state():
             if entry.get("file"):
                 if media.status_media_path(entry["id"]) is None:
                     continue  # background image is gone; drop the status
-                kept.append({"id": entry["id"], "text": text, "file": True})
+                loaded = {"id": entry["id"], "text": text, "file": True}
+                if entry.get("caption") is False:
+                    loaded["caption"] = False
+                kept.append(loaded)
             else:
                 kept.append({"id": entry["id"], "text": text,
                              "bg": _valid_color(entry.get("bg"))})
@@ -1233,6 +1236,8 @@ def create_custom_status():
             return jsonify(error="that doesn't look like an image or GIF"), 400
         media.save_status_media(status_id, raw, "gif" if len(frames) > 1 else "image")
         entry = {"id": status_id, "text": text, "file": True}
+        if (request.form.get("caption") or "1") == "0":
+            entry["caption"] = False  # the text names the button only
     else:
         entry = {"id": status_id, "text": text,
                  "bg": _valid_color(request.form.get("bg_color"))}

@@ -60,6 +60,7 @@
   }
   [data-theme="glass"] .field-btn { color: #fff; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
   [data-theme="glass"] button.status,
+  [data-theme="glass"] .hold-section,
   [data-theme="glass"] .demo-note,
   [data-theme="glass"] .recent {
     backdrop-filter: blur(14px);
@@ -325,8 +326,26 @@
     border-radius: var(--radius);
     flex-shrink: 0;
   }
-  /* ---- hold chips ---- */
-  .hold-section { display: grid; gap: 10px; }
+  /* ---- timers card ---- */
+  .hold-section {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    background: var(--raised);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+  }
+  .timer-row { display: flex; align-items: center; gap: 10px; }
+  .timer-row .tlbl {
+    width: 46px;
+    flex-shrink: 0;
+    font: 600 11px var(--font-body);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .timer-row .chips { flex: 1; }
+  .timer-row .chip { padding: 11px 0; }
   .chips {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -819,6 +838,30 @@
       <div class="divider"></div>
     </section>
 
+    <section class="hold-section">
+      <div class="headrow">
+        <h2>Timers</h2>
+        <button class="subline" id="hold-sub">Then back to auto</button>
+      </div>
+      <div class="timer-row">
+        <span class="tlbl">Hold</span>
+        <div class="chips" id="timer-chips">
+          <button class="chip sel" data-min="0">Forever</button>
+          <button class="chip" data-min="15">15 min</button>
+          <button class="chip" data-min="30">30 min</button>
+          <button class="chip" data-min="60">1 hr</button>
+        </div>
+      </div>
+      <div class="timer-row">
+        <span class="tlbl">Focus</span>
+        <div class="chips" id="focus-chips">
+          <button class="chip" data-min="15">15 min</button>
+          <button class="chip" data-min="25">25 min</button>
+          <button class="chip" data-min="50">50 min</button>
+        </div>
+      </div>
+    </section>
+
     <section class="status-section">
       <h2>Status</h2>
       <div class="grid" id="grid">
@@ -848,24 +891,6 @@
         {% if not demo %}
         <button class="newstatus" id="new-status-btn">＋ New status</button>
         {% endif %}
-      </div>
-    </section>
-
-    <section class="hold-section">
-      <div class="headrow">
-        <h2>Hold it there</h2>
-        <button class="subline" id="hold-sub">Then back to auto</button>
-      </div>
-      <div class="chips" id="timer-chips">
-        <button class="chip sel" data-min="0">Forever</button>
-        <button class="chip" data-min="15">15 min</button>
-        <button class="chip" data-min="30">30 min</button>
-        <button class="chip" data-min="60">1 hr</button>
-      </div>
-      <div class="chips" id="focus-chips">
-        <button class="chip" data-min="15">Focus 15</button>
-        <button class="chip" data-min="25">Focus 25</button>
-        <button class="chip" data-min="50">Focus 50</button>
       </div>
     </section>
 
@@ -944,6 +969,13 @@
     </div>
     <div class="gif-results" id="cs-gif-results"></div>
     <p class="hint" id="cs-file-name" hidden></p>
+    <div class="setting-row">
+      <span>Caption the image with the text</span>
+      <label class="switch">
+        <input type="checkbox" id="cs-caption" checked>
+        <span class="track"></span>
+      </label>
+    </div>
     <button class="field-btn" id="cs-save" style="justify-content: center;">Add to the grid</button>
     <div class="group" id="cs-list"></div>
     <p class="hint">A leading emoji becomes the icon on color backgrounds.
@@ -1001,7 +1033,7 @@
       <h3>Panel style</h3>
       <div class="chips" id="panel-theme-chips" style="grid-template-columns: repeat(2, 1fr);">
         <button class="chip" data-panel-theme="classic">Classic</button>
-        <button class="chip" data-panel-theme="overworld">Overworld</button>
+        <button class="chip" data-panel-theme="nameplate">Nameplate</button>
         <button class="chip" data-panel-theme="terminal">Terminal</button>
         <button class="chip" data-panel-theme="eightbit">8-bit</button>
       </div>
@@ -1749,6 +1781,9 @@
       } else {
         form.append("bg_color", document.querySelector('input[name="cs-color"]:checked').value);
       }
+      if (file || csPickedGif) {
+        form.append("caption", $("cs-caption").checked ? "1" : "0");
+      }
       try {
         const res = await fetch("/api/statuses", { method: "POST", body: form });
         const body = await res.json();
@@ -1759,6 +1794,7 @@
         $("cs-file-name").hidden = true;
         $("cs-gif-query").value = "";
         $("cs-gif-results").innerHTML = "";
+        $("cs-caption").checked = true;
         csPickedGif = null;
         renderState();
         closeStatusEditor();

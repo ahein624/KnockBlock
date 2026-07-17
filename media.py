@@ -276,7 +276,8 @@ def status_frames(entry):
     path = status_media_path(entry["id"])
     if path is None:
         return None
-    key = (path.stat().st_mtime, entry["text"])
+    wants_caption = entry.get("caption", True)
+    key = (path.stat().st_mtime, entry["text"], wants_caption)
     cached = _status_frames_cache.get(entry["id"])
     if cached and cached[0] == key:
         return cached[1]
@@ -284,14 +285,17 @@ def status_frames(entry):
         frames = frames_from_bytes(path.read_bytes())
     except (OSError, ValueError):
         return None
-    layer = caption_layer(entry["text"])
-    captioned = []
-    for image, duration in frames:
-        framed = image.copy()
-        framed.paste(layer, (0, 0), layer)
-        captioned.append((framed, duration))
-    _status_frames_cache[entry["id"]] = (key, captioned)
-    return captioned
+    if not wants_caption:
+        result = frames  # the text only names the button; the GIF speaks
+    else:
+        layer = caption_layer(entry["text"])
+        result = []
+        for image, duration in frames:
+            framed = image.copy()
+            framed.paste(layer, (0, 0), layer)
+            result.append((framed, duration))
+    _status_frames_cache[entry["id"]] = (key, result)
+    return result
 
 
 # ---- quiet hours ------------------------------------------------------
