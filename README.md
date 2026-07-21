@@ -59,8 +59,9 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,
   Apple Shortcuts, or curl (see below)
-- **Screen off** — a power button in the header turns the panel fully dark
-  on demand and stays off until you turn it back on. It's a top-priority
+- **Screen off** — a prominent “Turn off screen for the day” control below
+  the live preview (plus the header shortcut) turns the panel fully dark on
+  demand and keeps it off until you turn it back on. It's a top-priority
   manual hold, so it overrides the schedule and whatever's showing; tapping
   any status (or the badge) wakes it. Also at `/api/set/screen_off` for a
   Stream Deck "lights out" button
