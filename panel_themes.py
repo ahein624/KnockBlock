@@ -5,17 +5,18 @@ re-dress the same status (lines + colors) in a scene — all original,
 procedurally-drawn art. Themes apply to preset statuses only; custom
 messages, the clock, focus, and media keep their own rendering.
 """
+import random
+
 from PIL import Image, ImageDraw
 
-import media
 from matrix import PANEL_COLS, PANEL_ROWS, _fit_font, compose_preset
 
-PANEL_THEMES = ("classic", "overworld", "terminal", "eightbit")
+PANEL_THEMES = ("classic", "nameplate", "terminal", "eightbit")
 
 
 def compose(preset, theme, key=None):
-    if theme == "overworld":
-        return _overworld(preset)
+    if theme == "nameplate":
+        return _nameplate(preset)
     if theme == "terminal":
         return _terminal(preset)
     if theme == "eightbit":
@@ -23,33 +24,57 @@ def compose(preset, theme, key=None):
     return compose_preset(preset)
 
 
-def _overworld(preset):
-    """The status on a floating block over the arcade world.
-
-    Each status picks a deterministic frame of the loop, so ON A CALL and
-    FREE hang over different stretches of the level (and the runner and
-    coins come along for free)."""
-    lines = [line for line in (preset.get("lines") or []) if line]
-    seed = sum(ord(c) for c in "".join(lines)) % media.ARCADE_FRAME_COUNT
-    image = media.arcade_frames()[seed][0].copy()
+def _nameplate(preset):
+    """Skeuomorphic: a brushed-metal shop plate — beveled edges, corner
+    screws, the status engraved into the metal, and a glowing indicator
+    lamp in the status color."""
+    image = Image.new("RGB", (PANEL_COLS, PANEL_ROWS), (0, 0, 0))
     draw = ImageDraw.Draw(image)
+    pixels = image.load()
 
-    font, _, line_h = _fit_font(draw, lines, PANEL_COLS - 16, 18)
-    text_w = max(draw.textlength(line, font=font) for line in lines)
-    box_w = int(text_w) + 9
-    box_h = line_h * len(lines) + 5
-    x0 = (PANEL_COLS - box_w) // 2
-    y0 = 2
-    # The floating block: status color fill, pale face like a coin block.
-    draw.rectangle([x0, y0, x0 + box_w, y0 + box_h],
-                   fill=tuple(preset.get("bg_color", (0, 0, 0))),
-                   outline=(235, 225, 200))
-    text_color = tuple(preset.get("text_color", (255, 255, 255)))
-    y = y0 + 3
+    # Brushed metal: horizontal grain, deterministic per-row jitter.
+    rng = random.Random(64)
+    for y in range(PANEL_ROWS):
+        base = 88 + rng.randrange(-6, 7)
+        for x in range(PANEL_COLS):
+            v = base + rng.randrange(-3, 4)
+            pixels[x, y] = (v, v, v + 4)
+
+    # Bevel: lit from the top-left.
+    for x in range(PANEL_COLS):
+        pixels[x, 0] = (190, 190, 196)
+        pixels[x, PANEL_ROWS - 1] = (34, 34, 40)
+    for y in range(PANEL_ROWS):
+        pixels[0, y] = (170, 170, 176)
+        pixels[PANEL_COLS - 1, y] = (40, 40, 46)
+
+    # Corner screws: dark head, light slot.
+    for cx, cy in ((3, 3), (PANEL_COLS - 5, 3), (3, PANEL_ROWS - 5),
+                   (PANEL_COLS - 5, PANEL_ROWS - 5)):
+        draw.ellipse([cx - 1, cy - 1, cx + 2, cy + 2], fill=(52, 52, 58))
+        pixels[cx, cy] = (150, 150, 156)
+        pixels[cx + 1, cy + 1] = (150, 150, 156)
+
+    # The indicator lamp: a glowing dome in the status color.
+    accent = _brighten(preset.get("bg_color", (90, 90, 90)), 1.9)
+    dim = tuple(int(c * 0.45) for c in accent)
+    lamp_x, lamp_y = 11, PANEL_ROWS // 2
+    draw.ellipse([lamp_x - 5, lamp_y - 5, lamp_x + 5, lamp_y + 5], fill=(30, 30, 34))
+    draw.ellipse([lamp_x - 4, lamp_y - 4, lamp_x + 4, lamp_y + 4], fill=dim)
+    draw.ellipse([lamp_x - 2, lamp_y - 2, lamp_x + 2, lamp_y + 2], fill=accent)
+    pixels[lamp_x - 2, lamp_y - 3] = (255, 255, 255)  # specular glint
+
+    # Engraved text: light catch below, dark cut on top.
+    lines = [line for line in (preset.get("lines") or []) if line]
+    area_x = lamp_x + 8
+    area_w = PANEL_COLS - area_x - 4
+    font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - 6)
+    y = (PANEL_ROWS - line_h * len(lines)) // 2
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
-        x = x0 + (box_w - (bbox[2] - bbox[0])) // 2 - bbox[0]
-        draw.text((x, y - bbox[1]), line, font=font, fill=text_color)
+        x = area_x + max(0, (area_w - (bbox[2] - bbox[0])) // 2) - bbox[0]
+        draw.text((x, y - bbox[1] + 1), line, font=font, fill=(165, 165, 172))
+        draw.text((x, y - bbox[1]), line, font=font, fill=(28, 28, 34))
         y += line_h
     return image
 
