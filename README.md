@@ -59,11 +59,16 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   browser session or the API token, so the sign can be exposed beyond the LAN
 - **API token for scripts** — one-URL status changes from a Stream Deck,
   Apple Shortcuts, or curl (see below)
-- **Sleep schedule** — the panel goes dark during a configurable window
-  (e.g. 22:00–07:00) whenever it's idle; a deliberately set status or custom
-  message still shows. Or pick **Moonlight** instead of dark: a very dim
-  night scene — crescent moon, twinkling stars, and a sleeping cat
-  exhaling z's
+- **Screen off** — a power button in the header turns the panel fully dark
+  on demand and stays off until you turn it back on. It's a top-priority
+  manual hold, so it overrides the schedule and whatever's showing; tapping
+  any status (or the badge) wakes it. Also at `/api/set/screen_off` for a
+  Stream Deck "lights out" button
+- **Sleep schedule** — the panel goes dark every night during a configurable
+  window (e.g. 22:00–07:00) whenever it's idle; a deliberately set status or
+  the manual screen-off override still win. Or pick **Moonlight** instead of
+  dark: a very dim night scene — crescent moon, twinkling stars, and a
+  sleeping cat exhaling z's
 - **On-a-call autodetect** — a tiny agent on your laptop watches the
   camera/mic (macOS via OverSight, Windows via the ConsentStore registry)
   and heartbeats the sign; a 15s watchdog clears the status if the agent
@@ -97,8 +102,10 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   quip; secrets (calendar URL, location, API token) are redacted and the
   settings sheet is hidden. Logging in normally exits demo mode
 - **Scheduled statuses** — recurring rules like "Lunch, 12:00–13:00,
-  Mon–Fri" the sign follows on its own; presets, the clock, or a custom
-  message, overnight windows included. A manual tap overrides; Auto resumes
+  Mon–Fri" the sign follows on its own. A rule can show **any screen** — a
+  preset, the clock, dumpster fire, arcade, or one of your own custom/GIF
+  screens — with overnight windows included. A manual tap overrides; Auto
+  resumes
 - **Weekly insights** — a "This week" panel with time spent in meetings,
   calls, and focus, from an append-only local history (three months kept,
   message text never logged)

@@ -161,8 +161,10 @@ def _valid_schedule(rule):
     if status == "custom":
         if message is None:
             return None
-    elif status not in list(PRESETS) + ["clock"]:
-        return None
+    elif status not in list(PRESETS) + ["clock", "dumpster_fire", "arcade"]:
+        # Any screen can be scheduled — including user-made ones.
+        if not (isinstance(status, str) and _custom_status(status) is not None):
+            return None
     start, end = rule.get("start"), rule.get("end")
     if not (isinstance(start, str) and TIME_RE.match(start)
             and isinstance(end, str) and TIME_RE.match(end) and start != end):
@@ -222,7 +224,7 @@ def _load_state():
         status = manual.get("status")
         message = _valid_message(manual.get("message"))
         until = manual.get("until")
-        ok = (status in list(PRESETS) + ["clock", "dumpster_fire", "arcade"]
+        ok = (status in list(PRESETS) + ["clock", "dumpster_fire", "arcade", "screen_off"]
               or (status == "custom" and message)
               or (isinstance(status, str) and _custom_status(status) is not None))
         if status == "media":
@@ -347,6 +349,8 @@ def _active_schedule(now=None):
     for rule in state["schedules"]:
         if not rule["enabled"]:
             continue
+        if rule["status"].startswith("cs_") and _custom_status(rule["status"]) is None:
+            continue  # its screen was deleted underneath it
         if rule["start"] <= rule["end"]:
             if weekday in rule["days"] and rule["start"] <= current < rule["end"]:
                 return rule
@@ -403,6 +407,10 @@ def _set_manual(status, message, revert_minutes, media_info=None):
     TTL applies so a tapped button doesn't suppress autodetect all day."""
     if revert_minutes is not None:
         until, explicit = time.time() + revert_minutes * 60, True
+    elif status == "screen_off":
+        # A blackout stays until you turn it back on — never auto-reverts
+        # on the default TTL (a dark hallway shouldn't relight itself).
+        until, explicit = None, False
     else:
         ttl = state["settings"]["manual_ttl_minutes"]
         until, explicit = (time.time() + ttl * 60 if ttl else None), False
@@ -466,6 +474,8 @@ def _render_current(force=False):
     _record_transition(source, status)
     if _sleeping(source, status, now_dt):
         signature = ("sleep", state["settings"]["sleep_scene"])
+    elif status == "screen_off":
+        signature = ("off",)
     elif status == "media":
         signature = ("media", media_generation)
     elif status == "dumpster_fire":
@@ -501,6 +511,8 @@ def _render_current(force=False):
             display.play_frames(media.quiet_frames())
         else:
             display.render_preset(SLEEP_PRESET)
+    elif signature[0] == "off":
+        display.render_preset(SLEEP_PRESET)
     elif signature[0] == "media":
         display.play_frames(media_frames or [])
     elif signature[0] == "fire":
@@ -1093,7 +1105,7 @@ def set_state():
                 status = "clock"
             if status == "auto":
                 state["manual"] = None  # release the hold; autodetect takes over
-            elif (status in ("clock", "dumpster_fire", "arcade") or status in PRESETS
+            elif (status in ("clock", "dumpster_fire", "arcade", "screen_off") or status in PRESETS
                   or (isinstance(status, str) and _custom_status(status) is not None)):
                 _set_manual(status, None, minutes)
             else:
@@ -1142,7 +1154,7 @@ def quick_set(status):
         elif status == "focus":
             minutes = minutes or 25
             state["focus"] = {"until": time.time() + minutes * 60, "minutes": minutes}
-        elif (status in ("clock", "dumpster_fire", "arcade") or status in PRESETS
+        elif (status in ("clock", "dumpster_fire", "arcade", "screen_off") or status in PRESETS
               or _custom_status(status) is not None):
             _set_manual(status, None, minutes)
         else:
@@ -1260,6 +1272,9 @@ def delete_custom_status(status_id):
         manual = state["manual"]
         if manual and manual["status"] == status_id:
             state["manual"] = None  # it was showing; back to auto
+        state["schedules"] = [
+            rule for rule in state["schedules"] if rule["status"] != status_id
+        ]
         media.delete_status_media(status_id)
         _render_current()
         _save_state()

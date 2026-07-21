@@ -143,6 +143,7 @@
     color: var(--ink);
   }
   .wordmark .ah { font-weight: 700; color: var(--tan); }
+  .headbtns { display: flex; align-items: center; gap: 4px; }
   .cfg {
     padding: 8px 0 8px 8px;
     font: 600 11px var(--font-body);
@@ -151,6 +152,8 @@
     background: none;
     border: none;
   }
+  .power { display: grid; place-items: center; padding: 6px 8px; color: var(--ink-soft); }
+  .power.off { color: var(--orange); }
 
   main { max-width: 480px; margin: 0 auto; display: grid; gap: 24px; }
 
@@ -635,7 +638,7 @@
   .switch .track {
     position: absolute;
     inset: 0;
-    border-radius: var(--radius);
+    border-radius: 999px;
     background: var(--line);
     transition: background 0.15s;
   }
@@ -646,7 +649,7 @@
     left: 3px;
     width: 18px;
     height: 18px;
-    border-radius: 2px;
+    border-radius: 50%;
     background: var(--ink-soft);
     transition: transform 0.15s, background 0.15s;
   }
@@ -810,7 +813,14 @@
 <body>
   <header>
     <h1 class="wordmark"><span class="ah">AH.</span><span id="sign-name">{{ sign_name }}</span></h1>
-    {% if not demo %}<button class="cfg" id="gear" aria-label="Settings">SETTINGS</button>{% endif %}
+    {% if not demo %}
+    <div class="headbtns">
+      <button class="cfg power" id="power" aria-label="Turn screen off" title="Turn screen off">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>
+      </button>
+      <button class="cfg" id="gear" aria-label="Settings">SETTINGS</button>
+    </div>
+    {% endif %}
   </header>
   <main>
     {% if demo %}
@@ -1110,6 +1120,9 @@
           <option value="{{ key }}">{{ preset.label }}</option>
           {% endfor %}
           <option value="clock">Clock &amp; weather</option>
+          <option value="dumpster_fire">This Is Fine</option>
+          <option value="arcade">Game On</option>
+          <optgroup label="Your screens" id="sched-cs-group"></optgroup>
           <option value="custom">Custom message…</option>
         </select>
       </div>
@@ -1132,7 +1145,8 @@
       <p class="hint">
         The sign follows these on its own — calls, focus timers, and the
         calendar still outrank them, and a manual tap overrides. When two
-        overlap, the top rule wins.
+        overlap, the top rule wins. Any screen works, including the ones
+        you've made.
       </p>
     </div>
 
@@ -1266,6 +1280,8 @@
       }
       else if (state.status === "custom") {
         label = state.message ? state.message.text : "Custom";
+      } else if (state.status === "screen_off") {
+        label = "Screen off";
       } else if (state.showing_weather && state.weather) {
         label = state.weather.temp + "° · after hours";
       } else {
@@ -1284,12 +1300,21 @@
       // "Hold it there" subtitle while something is held. A scheduled
       // status borrows the badge as a read-only "why" indicator.
       const scheduled = state.source === "schedule";
+      const screenOff = state.status === "screen_off";
       $("held-badge").hidden = !(state.held || scheduled || (DEMO && demoStatus));
-      $("held-txt").textContent = (DEMO && demoStatus)
-        ? label + " · held"
-        : state.held
+      $("held-txt").textContent = screenOff
+        ? "Screen off · tap to wake"
+        : (DEMO && demoStatus)
           ? label + " · held"
-          : (state.schedule_label || label) + " · scheduled";
+          : state.held
+            ? label + " · held"
+            : (state.schedule_label || label) + " · scheduled";
+      const powerBtn = $("power");
+      if (powerBtn) {
+        powerBtn.classList.toggle("off", screenOff);
+        powerBtn.setAttribute("aria-label", screenOff ? "Turn screen on" : "Turn screen off");
+        powerBtn.title = screenOff ? "Turn screen on" : "Turn screen off";
+      }
       const holdSub = $("hold-sub");
       holdSub.textContent = state.held ? "Back to auto now" : "Then back to auto";
       holdSub.classList.toggle("act", !!state.held);
@@ -1362,6 +1387,8 @@
     function schedName(rule) {
       if (rule.label) return rule.label;
       if (rule.status === "custom") return rule.message.text;
+      const cs = (state.custom_statuses || []).find((e) => e.id === rule.status);
+      if (cs) return cs.text;
       return LABELS[rule.status] || "Clock & weather";
     }
 
@@ -1653,6 +1680,20 @@
       document.body.classList.remove("locked");
     }
     if ($("gear")) $("gear").addEventListener("click", () => { buzz(); openSheet(); });
+    if ($("power")) $("power").addEventListener("click", () => {
+      buzz();
+      if (state.status === "screen_off") {
+        sendUpdate({ status: "auto" });  // wake; response reconciles the screen
+        return;
+      }
+      // Optimistic: go dark instantly, reconcile with the response.
+      state.status = "screen_off";
+      state.sleeping = false;
+      state.source = "manual";
+      state.held = true;
+      renderState();
+      sendUpdate({ status: "screen_off" });
+    });
     backdrop.addEventListener("click", () => { closeSheet(); closeDesigner(); closeStatusEditor(); });
     sheet.querySelector(".grabber").addEventListener("click", closeSheet);
 
@@ -1684,6 +1725,23 @@
         box.appendChild(cell);
       });
       renderCsList();
+
+      // Your screens are schedulable too: keep the rule editor's
+      // select in sync with the custom-status list.
+      const group = $("sched-cs-group");
+      if (group) {
+        const selected = $("sched-status").value;
+        group.innerHTML = "";
+        list.forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = entry.text;
+          group.appendChild(option);
+        });
+        if ([...$("sched-status").options].some((o) => o.value === selected)) {
+          $("sched-status").value = selected;
+        }
+      }
     }
 
     function renderCsList() {
