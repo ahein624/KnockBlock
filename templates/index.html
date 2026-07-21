@@ -382,7 +382,7 @@
 
   /* ---- message / gif sections ---- */
   .fieldset { display: grid; gap: 10px; }
-  .compose-row { display: flex; gap: 8px; align-items: stretch; }
+  .compose-row { display: flex; gap: 8px; align-items: stretch; position: relative; }
   .field-input {
     flex: 1;
     min-width: 0;
@@ -708,6 +708,20 @@
     border: 1px solid var(--edge);
     border-radius: var(--radius);
   }
+  /* blinking caret indicator placed to the right of input text */
+  .compose-row .caret {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 18px;
+    background: #5F935D; /* green swatch used in presets */
+    border-radius: 2px;
+    pointer-events: none;
+    animation: kb-blink 1s steps(1) infinite;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.12) inset;
+  }
+  @keyframes kb-blink { 0%, 50% { opacity: 1; } 50.1%, 100% { opacity: 0; } }
   .text-input::placeholder { color: var(--ink-faint); }
   .text-input:focus { outline: 1px solid var(--tan); outline-offset: -1px; }
 
@@ -2372,6 +2386,65 @@
     }, { passive: true });
 
     renderState();
+  </script>
+  <script>
+    // Create and position a blinking caret to the right of text in compose inputs.
+    (function setupCarets() {
+      function init() {
+        document.querySelectorAll('.compose-row').forEach((row) => {
+          const input = row.querySelector('.field-input');
+          if (!input) return;
+          // Avoid adding multiple carets
+          if (row.querySelector('.caret')) return;
+          const caret = document.createElement('span');
+          caret.className = 'caret';
+          caret.style.display = 'none';
+          row.appendChild(caret);
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          function measure(text) {
+            const style = getComputedStyle(input);
+            ctx.font = style.font || (style.fontSize + ' ' + style.fontFamily);
+            return ctx.measureText(text).width;
+          }
+
+          // Size the caret to match the input's font/line-height
+          (function sizeCaret() {
+            const style = getComputedStyle(input);
+            const fontSize = parseFloat(style.fontSize) || 16;
+            let lh = style.lineHeight;
+            let lineH;
+            if (!lh || lh === 'normal') lineH = Math.round(fontSize * 1.2);
+            else lineH = Math.round(parseFloat(lh));
+            const caretW = Math.max(2, Math.round(fontSize * 0.12));
+            caret.style.height = lineH + 'px';
+            caret.style.width = caretW + 'px';
+            // tweak max-left calculations later to respect caret width
+            caret.dataset.w = String(caretW);
+          })();
+
+          function update() {
+            const text = input.value || input.placeholder || '';
+            const paddingLeft = parseFloat(getComputedStyle(input).paddingLeft) || 0;
+            const left = input.offsetLeft + paddingLeft + measure(text);
+            const caretW = parseInt(caret.dataset.w || '8', 10) || 8;
+            const maxLeft = input.offsetLeft + input.clientWidth - caretW - 6;
+            caret.style.left = Math.min(left, maxLeft) + 'px';
+          }
+
+          input.addEventListener('input', update);
+          input.addEventListener('keydown', () => setTimeout(update, 0));
+          input.addEventListener('focus', () => { caret.style.display = 'block'; update(); });
+          input.addEventListener('blur', () => { caret.style.display = 'none'; });
+          // initialize position
+          update();
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+    })();
   </script>
 </body>
 </html>
