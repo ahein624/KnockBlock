@@ -264,6 +264,28 @@
   }
   .door .divider { border-top: 1px dashed var(--edge); margin-top: 8px; }
 
+  .end-day {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    color: var(--ink);
+    text-align: left;
+    background: var(--raised);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+  }
+  .end-day svg { flex: 0 0 auto; color: var(--tan); }
+  .end-day-copy { display: grid; gap: 2px; }
+  .end-day-label { font: 600 15px var(--font-display); }
+  .end-day-hint { font: 400 12px var(--font-body); color: var(--ink-soft); }
+  .end-day.off {
+    border-color: var(--orange);
+    box-shadow: inset 0 0 0 1px var(--orange);
+  }
+  .end-day.off svg, .end-day.off .end-day-label { color: var(--orange); }
+
   /* ---- status ---- */
   .status-section { display: grid; gap: 10px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -874,6 +896,16 @@
       <div class="divider"></div>
     </section>
 
+    {% if not demo %}
+    <button class="end-day" id="end-day" type="button">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>
+      <span class="end-day-copy">
+        <span class="end-day-label" id="end-day-label">Turn off screen for the day</span>
+        <span class="end-day-hint" id="end-day-hint">Keeps the panel dark until you turn it back on</span>
+      </span>
+    </button>
+    {% endif %}
+
     <section class="hold-section">
       <div class="headrow">
         <h2>Timers</h2>
@@ -1341,6 +1373,17 @@
         powerBtn.setAttribute("aria-label", screenOff ? "Turn screen on" : "Turn screen off");
         powerBtn.title = screenOff ? "Turn screen on" : "Turn screen off";
       }
+      const endDayBtn = $("end-day");
+      if (endDayBtn) {
+        endDayBtn.classList.toggle("off", screenOff);
+        endDayBtn.setAttribute("aria-pressed", screenOff ? "true" : "false");
+        $("end-day-label").textContent = screenOff
+          ? "Screen is off"
+          : "Turn off screen for the day";
+        $("end-day-hint").textContent = screenOff
+          ? "Tap to turn it back on"
+          : "Keeps the panel dark until you turn it back on";
+      }
       const holdSub = $("hold-sub");
       holdSub.textContent = state.held ? "Back to auto now" : "Then back to auto";
       holdSub.classList.toggle("act", !!state.held);
@@ -1706,7 +1749,7 @@
       document.body.classList.remove("locked");
     }
     if ($("gear")) $("gear").addEventListener("click", () => { buzz(); openSheet(); });
-    if ($("power")) $("power").addEventListener("click", () => {
+    function toggleScreenPower() {
       buzz();
       if (state.status === "screen_off") {
         sendUpdate({ status: "auto" });  // wake; response reconciles the screen
@@ -1719,7 +1762,9 @@
       state.held = true;
       renderState();
       sendUpdate({ status: "screen_off" });
-    });
+    }
+    if ($("power")) $("power").addEventListener("click", toggleScreenPower);
+    if ($("end-day")) $("end-day").addEventListener("click", toggleScreenPower);
     backdrop.addEventListener("click", () => { closeSheet(); closeDesigner(); closeStatusEditor(); });
     sheet.querySelector(".grabber").addEventListener("click", closeSheet);
 
