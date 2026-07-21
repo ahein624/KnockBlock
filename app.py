@@ -900,7 +900,7 @@ def index():
     # so the first paint is already in the right theme (no flash).
     theme = request.cookies.get("kb_theme")
     if theme not in THEMES:
-        theme = "workshop"
+        theme = "glass"  # the flagship default for a device that hasn't picked
     with lock:
         payload = _api_payload(demo=demo)
     return render_template(
