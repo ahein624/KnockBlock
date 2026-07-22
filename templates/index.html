@@ -667,6 +667,7 @@
     gap: 8px;
     font: 500 15px var(--font-body);
   }
+  .setting-row[hidden] { display: none; }
   .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
   .switch input { display: none; }
   .switch .track {
@@ -1017,10 +1018,11 @@
   <section class="sheet" id="status-editor" role="dialog" aria-modal="true" aria-label="New status">
     <div class="grabber"></div>
     <h2>New status</h2>
+    <p class="hint">Use text, an image, or both.</p>
     <input id="cs-text" type="text" class="field-input" maxlength="40"
-           placeholder="What the panel should say" autocomplete="off">
+           placeholder="Status text (optional with an image)" autocomplete="off">
     <div class="inkrow">
-      <span class="lbl">On a color</span>
+      <span class="lbl">Text background</span>
       {% for name, color in message_colors.items() %}
       <label class="swatch">
         <input type="radio" name="cs-color" value="{{ name }}" {% if loop.first %}checked{% endif %}>
@@ -1028,7 +1030,7 @@
       </label>
       {% endfor %}
     </div>
-    <button class="upload-btn" id="cs-file-btn">…or over an image / meme / GIF</button>
+    <button class="upload-btn" id="cs-file-btn">Add an image / meme / GIF (optional)</button>
     <input type="file" id="cs-file" accept="image/*" hidden>
     <div class="compose-row">
       <input id="cs-gif-query" type="text" class="field-input" maxlength="60"
@@ -1037,8 +1039,8 @@
     </div>
     <div class="gif-results" id="cs-gif-results"></div>
     <p class="hint" id="cs-file-name" hidden></p>
-    <div class="setting-row">
-      <span>Caption the image with the text</span>
+    <div class="setting-row" id="cs-caption-row" hidden>
+      <span>Put the text over the image</span>
       <label class="switch">
         <input type="checkbox" id="cs-caption" checked>
         <span class="track"></span>
@@ -1229,7 +1231,7 @@
       <p class="hint">
         A tapped status releases back to auto after this long, so a manual
         press can’t suppress call &amp; calendar detection all day. The hold
-        chips override this per press.
+        chips above override this until you choose another duration.
       </p>
     </div>
 
@@ -1274,7 +1276,14 @@
       calendar: "calendar",
     };
     let state = {{ state | tojson }};
-    let timerMinutes = 0;
+    let timerMinutes = (() => {
+      try {
+        const saved = Number(localStorage.getItem("kb-hold-minutes"));
+        return [0, 15, 30, 60].includes(saved) ? saved : 0;
+      } catch (err) {
+        return 0;
+      }
+    })();
     let thumbTheme = "classic";  // what the thumb URLs were last fetched for
     let brightDragging = false;
     let brightTimer = null;
@@ -1863,6 +1872,12 @@
 
     let csPickedGif = null;  // search-picked background for a new status
 
+    function updateCsCaptionOption() {
+      const hasImage = !!$("cs-file").files[0] || !!csPickedGif;
+      $("cs-caption-row").hidden = !(hasImage && $("cs-text").value.trim());
+    }
+    $("cs-text").addEventListener("input", updateCsCaptionOption);
+
     $("cs-file-btn").addEventListener("click", () => $("cs-file").click());
     $("cs-file").addEventListener("change", () => {
       const file = $("cs-file").files[0];
@@ -1872,6 +1887,7 @@
       }
       $("cs-file-name").hidden = !file;
       $("cs-file-name").textContent = file ? "Background: " + file.name : "";
+      updateCsCaptionOption();
     });
 
     async function csGifSearch() {
@@ -1886,6 +1902,7 @@
             i.classList.toggle("sel", i === img));
           $("cs-file-name").hidden = false;
           $("cs-file-name").textContent = "Background: " + (result.title || "picked GIF");
+          updateCsCaptionOption();
         });
       } catch (err) {
         showToast(err.message || "Search failed", true);
@@ -1898,20 +1915,25 @@
 
     $("cs-save").addEventListener("click", async () => {
       const text = $("cs-text").value.trim();
-      if (!text) { showToast("Type what the panel should say", true); return; }
+      const file = $("cs-file").files[0];
+      if (!text && !file && !csPickedGif) {
+        showToast("Add text, an image, or both", true);
+        return;
+      }
       buzz();
       const form = new FormData();
       form.append("text", text);
-      const file = $("cs-file").files[0];
       if (file) {
         form.append("file", file);
+        form.append("image_label", file.name);
       } else if (csPickedGif) {
         form.append("url", csPickedGif.url);
+        form.append("image_label", csPickedGif.title || "Image");
       } else {
         form.append("bg_color", document.querySelector('input[name="cs-color"]:checked').value);
       }
       if (file || csPickedGif) {
-        form.append("caption", $("cs-caption").checked ? "1" : "0");
+        form.append("caption", text && $("cs-caption").checked ? "1" : "0");
       }
       try {
         const res = await fetch("/api/statuses", { method: "POST", body: form });
@@ -1925,6 +1947,7 @@
         $("cs-gif-results").innerHTML = "";
         $("cs-caption").checked = true;
         csPickedGif = null;
+        updateCsCaptionOption();
         renderState();
         closeStatusEditor();
       } catch (err) {
@@ -2115,13 +2138,20 @@
       }, "image/png");
     });
 
+    function renderTimerSelection() {
+      document.querySelectorAll("#timer-chips .chip").forEach((chip) =>
+        chip.classList.toggle("sel", Number(chip.dataset.min) === timerMinutes));
+    }
+    renderTimerSelection();
+
     $("timer-chips").addEventListener("click", (event) => {
       const chip = event.target.closest(".chip");
       if (!chip) return;
       buzz();
       timerMinutes = Number(chip.dataset.min);
-      document.querySelectorAll("#timer-chips .chip").forEach((c) =>
-        c.classList.toggle("sel", c === chip));
+      try { localStorage.setItem("kb-hold-minutes", String(timerMinutes)); }
+      catch (err) { /* selection still lasts for this page */ }
+      renderTimerSelection();
     });
 
     $("focus-chips").addEventListener("click", (event) => {
@@ -2175,9 +2205,6 @@
     function withTimer(partial) {
       if (timerMinutes > 0) {
         partial.revert_minutes = timerMinutes;
-        timerMinutes = 0;
-        document.querySelectorAll("#timer-chips .chip").forEach((c) =>
-          c.classList.toggle("sel", c.dataset.min === "0"));
       }
       return partial;
     }

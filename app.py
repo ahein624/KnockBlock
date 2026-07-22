@@ -1223,17 +1223,27 @@ def show_gif():
 
 @app.route("/api/statuses", methods=["POST"])
 def create_custom_status():
-    """Make a new status button: text over a panel color, an uploaded
-    image/GIF, or a search-picked GIF (multipart form: text, and
-    bg_color, file, or url)."""
-    text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
-    if not text:
-        return jsonify(error="text is required"), 400
+    """Make a new status button from text, an image/GIF, or both.
+
+    Image-only statuses derive their grid label from the filename or the
+    search result title; that label is not drawn over the image.
+    """
+    supplied_text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
     file = request.files.get("file")
     picked_url = (request.form.get("url") or "").strip()
+    has_file = file is not None and bool(file.filename)
+    if not supplied_text and not has_file and not picked_url:
+        return jsonify(error="add text, an image, or both"), 400
+
+    text = supplied_text
+    if not text:
+        label = file.filename if has_file else request.form.get("image_label")
+        label = Path(str(label or "").replace("\\", "/")).stem.strip()
+        text = label[:MAX_SIGN_NAME] or "Image"
+
     status_id = "cs_" + secrets.token_hex(4)
-    if (file is not None and file.filename) or picked_url:
-        if file is not None and file.filename:
+    if has_file or picked_url:
+        if has_file:
             raw = file.read()
         else:
             try:
@@ -1248,7 +1258,7 @@ def create_custom_status():
             return jsonify(error="that doesn't look like an image or GIF"), 400
         media.save_status_media(status_id, raw, "gif" if len(frames) > 1 else "image")
         entry = {"id": status_id, "text": text, "file": True}
-        if (request.form.get("caption") or "1") == "0":
+        if not supplied_text or (request.form.get("caption") or "1") == "0":
             entry["caption"] = False  # the text names the button only
     else:
         entry = {"id": status_id, "text": text,

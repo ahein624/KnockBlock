@@ -27,14 +27,15 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   Disturb), rendered with auto-fitted text on the panel
 - **Custom messages** — type anything (leading emoji becomes the icon), pick a
   background color; recent messages become one-tap chips
-- **Custom statuses** — build your own status buttons (up to 8): text over
-  a panel color, or over an uploaded image/meme/GIF — captioned, or with
-  the caption switched off so the GIF plays bare (the text then just names
-  the button). They join the status grid with real-render thumbnails, work
+- **Custom statuses** — build your own status buttons (up to 8) from text,
+  an uploaded image/meme/GIF, or both. Images can play bare or carry a text
+  caption; image-only buttons take their name from the file or GIF title.
+  They join the status grid with real-render thumbnails, work
   from the Stream Deck (`/api/set/cs_…`), and deleting one that's showing
   releases to auto
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
-  live countdown; survives restarts
+  live countdown; the phone remembers its selected hold duration for later
+  status changes and across reloads
 - **Live preview** — the phone UI mirrors exactly what the panel shows
 - **Clock & weather screen** — a tappable mode showing the local time plus
   current conditions; outside working hours an idle sign switches to it
