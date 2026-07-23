@@ -27,15 +27,18 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   Disturb), rendered with auto-fitted text on the panel
 - **Custom messages** — type anything (leading emoji becomes the icon), pick a
   background color; recent messages become one-tap chips
-- **Custom statuses** — build your own status buttons (up to 8): text over
-  a panel color, or over an uploaded image/meme/GIF — captioned, or with
-  the caption switched off so the GIF plays bare (the text then just names
-  the button). They join the status grid with real-render thumbnails, work
+- **Custom statuses** — build your own status buttons (up to 8) from text,
+  an uploaded image/meme/GIF, or both. Images can play bare or carry a text
+  caption; image-only buttons take their name from the file or GIF title.
+  They join the status grid with real-render thumbnails, work
   from the Stream Deck (`/api/set/cs_…`), and deleting one that's showing
   releases to auto
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
-  live countdown; survives restarts
+  live countdown; changing the status keeps the original expiration, even
+  across a reload. The phone remembers the selected duration for the next
+  hold, and “Forever” has no expiration
 - **Live preview** — the phone UI mirrors exactly what the panel shows
+- **Device temperature** — Settings shows the Pi CPU temperature in °F
 - **Clock & weather screen** — a tappable mode showing the local time plus
   current conditions; outside working hours an idle sign switches to it
   automatically (Open-Meteo, no API key; location auto-detected from the
@@ -195,7 +198,9 @@ or `?token=<token>`:
   releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
   `{"focus_minutes": 25}` (0 cancels),
-  `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
+  `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message;
+  0 means forever), `{"preserve_hold": true}` (keep an active hold's absolute
+  expiration while changing its status),
   `{"settings": {"sign_name": "Knockblock", "weather_idle": true,
   "work_start": "08:00", "work_end": "18:00", "units": "f", "lat": null,
   "lon": null, "sleep_enabled": true, "sleep_start": "22:00",

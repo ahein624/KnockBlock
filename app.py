@@ -39,6 +39,7 @@ from presets import (
 )
 
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
+CPU_TEMP_FILE = Path("/sys/class/thermal/thermal_zone0/temp")
 MAX_MESSAGE_LENGTH = 80
 MAX_SIGN_NAME = 40
 MAX_SCHEDULES = 20
@@ -402,11 +403,22 @@ def _arbitrate(now):
     return "idle", DEFAULT_PRESET, None, None
 
 
-def _set_manual(status, message, revert_minutes, media_info=None):
+def _set_manual(status, message, revert_minutes, media_info=None, preserve_hold=False):
     """Install a manual hold. An explicit timer wins; otherwise the default
-    TTL applies so a tapped button doesn't suppress autodetect all day."""
-    if revert_minutes is not None:
-        until, explicit = time.time() + revert_minutes * 60, True
+    TTL applies so a tapped button doesn't suppress autodetect all day.
+    Phone status changes can keep an existing hold's absolute expiry."""
+    now = time.time()
+    current = state["manual"]
+    current_until = current.get("until") if current else None
+    current_active = current is not None and (
+        current_until is None or current_until > now
+    )
+    if preserve_hold and current_active:
+        until = current_until
+        explicit = bool(current.get("explicit"))
+    elif revert_minutes is not None:
+        until = now + revert_minutes * 60 if revert_minutes else None
+        explicit = True
     elif status == "screen_off":
         # A blackout stays until you turn it back on — never auto-reverts
         # on the default TTL (a dark hallway shouldn't relight itself).
@@ -420,11 +432,11 @@ def _set_manual(status, message, revert_minutes, media_info=None):
     }
 
 
-def _set_media(frames, media_info, revert_minutes):
+def _set_media(frames, media_info, revert_minutes, preserve_hold=False):
     global media_frames, media_generation
     media_frames = frames
     media_generation += 1
-    _set_manual("media", None, revert_minutes, media_info)
+    _set_manual("media", None, revert_minutes, media_info, preserve_hold)
 
 
 def _idle_clock_active(source, now=None):
@@ -600,6 +612,18 @@ def _scheduler_loop():
         time.sleep(SCHEDULER_INTERVAL)
 
 
+def _device_temperature_f():
+    """Read the Pi CPU temperature, or None when not on supported hardware."""
+    try:
+        raw = float(CPU_TEMP_FILE.read_text().strip())
+    except (OSError, ValueError):
+        return None
+    celsius = raw / 1000 if abs(raw) > 1000 else raw
+    if not 0 <= celsius <= 150:
+        return None
+    return round(celsius * 9 / 5 + 32, 1)
+
+
 def _api_payload(demo=False):
     """Assumes the caller holds the lock (arbitration mutates expired holds)."""
     now = time.time()
@@ -625,6 +649,9 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        # Operational telemetry belongs in the authenticated settings UI,
+        # not the public demo payload.
+        "device_temp_f": None if demo else _device_temperature_f(),
         # Custom statuses show in the grid for everyone — the panel itself
         # is public in demo mode, so their thumbs already are too.
         "custom_statuses": state["custom_statuses"],
@@ -1087,8 +1114,9 @@ def set_state():
                 minutes = int(minutes)
             except (TypeError, ValueError):
                 return jsonify(error="revert_minutes must be a number"), 400
-            if not 1 <= minutes <= MAX_REVERT_MINUTES:
+            if not 0 <= minutes <= MAX_REVERT_MINUTES:
                 return jsonify(error="revert_minutes out of range"), 400
+        preserve_hold = data.get("preserve_hold") is True
 
         if "message" in data:
             message = data["message"] or {}
@@ -1096,7 +1124,10 @@ def set_state():
             if not text:
                 return jsonify(error="message text is required"), 400
             color = _valid_color(message.get("color"))
-            _set_manual("custom", {"text": text, "color": color}, minutes)
+            _set_manual(
+                "custom", {"text": text, "color": color}, minutes,
+                preserve_hold=preserve_hold,
+            )
             _remember_message(text, color)
             _render_current()
         elif "status" in data:
@@ -1107,7 +1138,7 @@ def set_state():
                 state["manual"] = None  # release the hold; autodetect takes over
             elif (status in ("clock", "dumpster_fire", "arcade", "screen_off") or status in PRESETS
                   or (isinstance(status, str) and _custom_status(status) is not None)):
-                _set_manual(status, None, minutes)
+                _set_manual(status, None, minutes, preserve_hold=preserve_hold)
             else:
                 return jsonify(error="unknown status"), 400
             _render_current()
@@ -1172,9 +1203,16 @@ def _parse_revert_minutes(value):
         value = int(value)
     except (TypeError, ValueError):
         return None, "revert_minutes must be a number"
-    if not 1 <= value <= MAX_REVERT_MINUTES:
+    if not 0 <= value <= MAX_REVERT_MINUTES:
         return None, "revert_minutes out of range"
     return value, None
+
+
+def _parse_preserve_hold(value):
+    """Form and JSON requests use different representations for booleans."""
+    return value is True or (
+        isinstance(value, str) and value.lower() in ("1", "true")
+    )
 
 
 @app.route("/api/gif/search")
@@ -1195,6 +1233,7 @@ def show_gif():
     minutes, err = _parse_revert_minutes(data.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
+    preserve_hold = _parse_preserve_hold(data.get("preserve_hold"))
     if data.get("url"):
         try:
             raw = media.fetch_gif_url(str(data["url"]))
@@ -1215,7 +1254,10 @@ def show_gif():
         return jsonify(error=str(exc)), 502
     media.save_current(raw, "gif")
     with lock:
-        _set_media(frames, {"kind": "gif", "label": f"GIF · {used_query}"}, minutes)
+        _set_media(
+            frames, {"kind": "gif", "label": f"GIF · {used_query}"},
+            minutes, preserve_hold,
+        )
         _render_current()
         _save_state()
         return jsonify(_api_payload())
@@ -1223,17 +1265,27 @@ def show_gif():
 
 @app.route("/api/statuses", methods=["POST"])
 def create_custom_status():
-    """Make a new status button: text over a panel color, an uploaded
-    image/GIF, or a search-picked GIF (multipart form: text, and
-    bg_color, file, or url)."""
-    text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
-    if not text:
-        return jsonify(error="text is required"), 400
+    """Make a new status button from text, an image/GIF, or both.
+
+    Image-only statuses derive their grid label from the filename or the
+    search result title; that label is not drawn over the image.
+    """
+    supplied_text = (request.form.get("text") or "").strip()[:MAX_SIGN_NAME]
     file = request.files.get("file")
     picked_url = (request.form.get("url") or "").strip()
+    has_file = file is not None and bool(file.filename)
+    if not supplied_text and not has_file and not picked_url:
+        return jsonify(error="add text, an image, or both"), 400
+
+    text = supplied_text
+    if not text:
+        label = file.filename if has_file else request.form.get("image_label")
+        label = Path(str(label or "").replace("\\", "/")).stem.strip()
+        text = label[:MAX_SIGN_NAME] or "Image"
+
     status_id = "cs_" + secrets.token_hex(4)
-    if (file is not None and file.filename) or picked_url:
-        if file is not None and file.filename:
+    if has_file or picked_url:
+        if has_file:
             raw = file.read()
         else:
             try:
@@ -1248,7 +1300,7 @@ def create_custom_status():
             return jsonify(error="that doesn't look like an image or GIF"), 400
         media.save_status_media(status_id, raw, "gif" if len(frames) > 1 else "image")
         entry = {"id": status_id, "text": text, "file": True}
-        if (request.form.get("caption") or "1") == "0":
+        if not supplied_text or (request.form.get("caption") or "1") == "0":
             entry["caption"] = False  # the text names the button only
     else:
         entry = {"id": status_id, "text": text,
@@ -1290,6 +1342,7 @@ def upload_media():
     minutes, err = _parse_revert_minutes(request.form.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
+    preserve_hold = _parse_preserve_hold(request.form.get("preserve_hold"))
     raw = file.read()
     try:
         frames = media.frames_from_bytes(raw)
@@ -1299,7 +1352,9 @@ def upload_media():
     media.save_current(raw, kind)
     label = file.filename[:40]
     with lock:
-        _set_media(frames, {"kind": kind, "label": label}, minutes)
+        _set_media(
+            frames, {"kind": kind, "label": label}, minutes, preserve_hold,
+        )
         _render_current()
         _save_state()
         return jsonify(_api_payload())
