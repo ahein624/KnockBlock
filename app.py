@@ -39,6 +39,7 @@ from presets import (
 )
 
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
+CPU_TEMP_FILE = Path("/sys/class/thermal/thermal_zone0/temp")
 MAX_MESSAGE_LENGTH = 80
 MAX_SIGN_NAME = 40
 MAX_SCHEDULES = 20
@@ -600,6 +601,18 @@ def _scheduler_loop():
         time.sleep(SCHEDULER_INTERVAL)
 
 
+def _device_temperature_f():
+    """Read the Pi CPU temperature, or None when not on supported hardware."""
+    try:
+        raw = float(CPU_TEMP_FILE.read_text().strip())
+    except (OSError, ValueError):
+        return None
+    celsius = raw / 1000 if abs(raw) > 1000 else raw
+    if not 0 <= celsius <= 150:
+        return None
+    return round(celsius * 9 / 5 + 32, 1)
+
+
 def _api_payload(demo=False):
     """Assumes the caller holds the lock (arbitration mutates expired holds)."""
     now = time.time()
@@ -625,6 +638,9 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        # Operational telemetry belongs in the authenticated settings UI,
+        # not the public demo payload.
+        "device_temp_f": None if demo else _device_temperature_f(),
         # Custom statuses show in the grid for everyone — the panel itself
         # is public in demo mode, so their thumbs already are too.
         "custom_statuses": state["custom_statuses"],

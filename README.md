@@ -37,6 +37,7 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   live countdown; the phone remembers its selected hold duration for later
   status changes and across reloads
 - **Live preview** — the phone UI mirrors exactly what the panel shows
+- **Device temperature** — Settings shows the Pi CPU temperature in °F
 - **Clock & weather screen** — a tappable mode showing the local time plus
   current conditions; outside working hours an idle sign switches to it
   automatically (Open-Meteo, no API key; location auto-detected from the

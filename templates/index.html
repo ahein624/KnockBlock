@@ -1252,6 +1252,10 @@
     <div class="group">
       <h3>Software</h3>
       <div class="setting-row">
+        <span>Device temperature</span>
+        <span id="device-temp-lbl">Unavailable</span>
+      </div>
+      <div class="setting-row">
         <span id="version-lbl"></span>
         <button class="token-btn" id="update-btn">Update sign</button>
       </div>
@@ -1398,6 +1402,10 @@
       holdSub.classList.toggle("act", !!state.held);
 
       const settings = state.settings || {};
+      const deviceTemp = state.device_temp_f;
+      $("device-temp-lbl").textContent = typeof deviceTemp === "number"
+        ? deviceTemp.toFixed(1) + "°F"
+        : "Unavailable";
       $("weather-toggle").checked = !!settings.weather_idle;
       $("sleep-toggle").checked = !!settings.sleep_enabled;
       const ws = $("work-start"), we = $("work-end");
@@ -1617,8 +1625,13 @@
         if (!res.ok) return;
         const fresh = await res.json();
         const changed = JSON.stringify(fresh) !== JSON.stringify(state);
+        const previewChanged = JSON.stringify({
+          ...fresh,
+          device_temp_f: state.device_temp_f,
+        }) !== JSON.stringify(state);
         state = fresh;
-        if (changed) { renderState(); refreshPreview(); }
+        if (changed) renderState();
+        if (previewChanged) refreshPreview();
       } catch (err) { /* transient; leave UI as-is */ }
     }
     setInterval(() => { if (!document.hidden) syncState(); }, 5000);
