@@ -1288,6 +1288,7 @@
         return 0;
       }
     })();
+    let timerSelectionChanged = false;
     let thumbTheme = "classic";  // what the thumb URLs were last fetched for
     let brightDragging = false;
     let brightTimer = null;
@@ -1610,6 +1611,9 @@
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || "Request failed");
         state = body;
+        if ("revert_minutes" in partial || partial.preserve_hold) {
+          timerSelectionChanged = false;
+        }
         renderState();
         if (!("brightness" in partial) || Object.keys(partial).length > 1) refreshPreview();
       } catch (err) {
@@ -1650,6 +1654,7 @@
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Request failed");
       state = body;
+      timerSelectionChanged = false;
       renderState();
       refreshPreview();
     }
@@ -1728,7 +1733,8 @@
       const form = new FormData();
       form.append("file", file);
       const timed = withTimer({});
-      if (timed.revert_minutes) form.append("revert_minutes", timed.revert_minutes);
+      if ("revert_minutes" in timed) form.append("revert_minutes", timed.revert_minutes);
+      if (timed.preserve_hold) form.append("preserve_hold", "1");
       try {
         const res = await fetch("/api/upload", { method: "POST", body: form });
         await showMediaResponse(res);
@@ -2140,7 +2146,8 @@
         const form = new FormData();
         form.append("file", blob, "Your design.png");
         const timed = withTimer({});
-        if (timed.revert_minutes) form.append("revert_minutes", timed.revert_minutes);
+        if ("revert_minutes" in timed) form.append("revert_minutes", timed.revert_minutes);
+        if (timed.preserve_hold) form.append("preserve_hold", "1");
         try {
           const res = await fetch("/api/upload", { method: "POST", body: form });
           await showMediaResponse(res);
@@ -2162,6 +2169,7 @@
       if (!chip) return;
       buzz();
       timerMinutes = Number(chip.dataset.min);
+      timerSelectionChanged = true;
       try { localStorage.setItem("kb-hold-minutes", String(timerMinutes)); }
       catch (err) { /* selection still lasts for this page */ }
       renderTimerSelection();
@@ -2216,7 +2224,9 @@
     });
 
     function withTimer(partial) {
-      if (timerMinutes > 0) {
+      if (state.held && !timerSelectionChanged) {
+        partial.preserve_hold = true;
+      } else {
         partial.revert_minutes = timerMinutes;
       }
       return partial;
@@ -2232,13 +2242,14 @@
         refreshPreview();
         return;
       }
+      const update = withTimer({ status: key });
       // Optimistic: reflect the tap instantly, reconcile with the response.
       state.status = key;
       state.sleeping = false;
       state.source = "manual";
       state.held = true;
       renderState();
-      sendUpdate(withTimer({ status: key }));
+      sendUpdate(update);
     }
 
     $("grid").addEventListener("click", (event) => {

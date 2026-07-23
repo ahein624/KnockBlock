@@ -34,8 +34,9 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   from the Stream Deck (`/api/set/cs_…`), and deleting one that's showing
   releases to auto
 - **Auto-revert timers** — "On a Call for 30 min, then back to Free," with a
-  live countdown; the phone remembers its selected hold duration for later
-  status changes and across reloads
+  live countdown; changing the status keeps the original expiration, even
+  across a reload. The phone remembers the selected duration for the next
+  hold, and “Forever” has no expiration
 - **Live preview** — the phone UI mirrors exactly what the panel shows
 - **Device temperature** — Settings shows the Pi CPU temperature in °F
 - **Clock & weather screen** — a tappable mode showing the local time plus
@@ -197,7 +198,9 @@ or `?token=<token>`:
   releases a manual hold),
   `{"message": {"text": "...", "color": "blue"}}`,
   `{"focus_minutes": 25}` (0 cancels),
-  `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message),
+  `{"brightness": 5-100}`, `{"revert_minutes": N}` (with a status/message;
+  0 means forever), `{"preserve_hold": true}` (keep an active hold's absolute
+  expiration while changing its status),
   `{"settings": {"sign_name": "Knockblock", "weather_idle": true,
   "work_start": "08:00", "work_end": "18:00", "units": "f", "lat": null,
   "lon": null, "sleep_enabled": true, "sleep_start": "22:00",

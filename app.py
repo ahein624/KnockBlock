@@ -403,11 +403,22 @@ def _arbitrate(now):
     return "idle", DEFAULT_PRESET, None, None
 
 
-def _set_manual(status, message, revert_minutes, media_info=None):
+def _set_manual(status, message, revert_minutes, media_info=None, preserve_hold=False):
     """Install a manual hold. An explicit timer wins; otherwise the default
-    TTL applies so a tapped button doesn't suppress autodetect all day."""
-    if revert_minutes is not None:
-        until, explicit = time.time() + revert_minutes * 60, True
+    TTL applies so a tapped button doesn't suppress autodetect all day.
+    Phone status changes can keep an existing hold's absolute expiry."""
+    now = time.time()
+    current = state["manual"]
+    current_until = current.get("until") if current else None
+    current_active = current is not None and (
+        current_until is None or current_until > now
+    )
+    if preserve_hold and current_active:
+        until = current_until
+        explicit = bool(current.get("explicit"))
+    elif revert_minutes is not None:
+        until = now + revert_minutes * 60 if revert_minutes else None
+        explicit = True
     elif status == "screen_off":
         # A blackout stays until you turn it back on — never auto-reverts
         # on the default TTL (a dark hallway shouldn't relight itself).
@@ -421,11 +432,11 @@ def _set_manual(status, message, revert_minutes, media_info=None):
     }
 
 
-def _set_media(frames, media_info, revert_minutes):
+def _set_media(frames, media_info, revert_minutes, preserve_hold=False):
     global media_frames, media_generation
     media_frames = frames
     media_generation += 1
-    _set_manual("media", None, revert_minutes, media_info)
+    _set_manual("media", None, revert_minutes, media_info, preserve_hold)
 
 
 def _idle_clock_active(source, now=None):
@@ -1103,8 +1114,9 @@ def set_state():
                 minutes = int(minutes)
             except (TypeError, ValueError):
                 return jsonify(error="revert_minutes must be a number"), 400
-            if not 1 <= minutes <= MAX_REVERT_MINUTES:
+            if not 0 <= minutes <= MAX_REVERT_MINUTES:
                 return jsonify(error="revert_minutes out of range"), 400
+        preserve_hold = data.get("preserve_hold") is True
 
         if "message" in data:
             message = data["message"] or {}
@@ -1112,7 +1124,10 @@ def set_state():
             if not text:
                 return jsonify(error="message text is required"), 400
             color = _valid_color(message.get("color"))
-            _set_manual("custom", {"text": text, "color": color}, minutes)
+            _set_manual(
+                "custom", {"text": text, "color": color}, minutes,
+                preserve_hold=preserve_hold,
+            )
             _remember_message(text, color)
             _render_current()
         elif "status" in data:
@@ -1123,7 +1138,7 @@ def set_state():
                 state["manual"] = None  # release the hold; autodetect takes over
             elif (status in ("clock", "dumpster_fire", "arcade", "screen_off") or status in PRESETS
                   or (isinstance(status, str) and _custom_status(status) is not None)):
-                _set_manual(status, None, minutes)
+                _set_manual(status, None, minutes, preserve_hold=preserve_hold)
             else:
                 return jsonify(error="unknown status"), 400
             _render_current()
@@ -1188,9 +1203,16 @@ def _parse_revert_minutes(value):
         value = int(value)
     except (TypeError, ValueError):
         return None, "revert_minutes must be a number"
-    if not 1 <= value <= MAX_REVERT_MINUTES:
+    if not 0 <= value <= MAX_REVERT_MINUTES:
         return None, "revert_minutes out of range"
     return value, None
+
+
+def _parse_preserve_hold(value):
+    """Form and JSON requests use different representations for booleans."""
+    return value is True or (
+        isinstance(value, str) and value.lower() in ("1", "true")
+    )
 
 
 @app.route("/api/gif/search")
@@ -1211,6 +1233,7 @@ def show_gif():
     minutes, err = _parse_revert_minutes(data.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
+    preserve_hold = _parse_preserve_hold(data.get("preserve_hold"))
     if data.get("url"):
         try:
             raw = media.fetch_gif_url(str(data["url"]))
@@ -1231,7 +1254,10 @@ def show_gif():
         return jsonify(error=str(exc)), 502
     media.save_current(raw, "gif")
     with lock:
-        _set_media(frames, {"kind": "gif", "label": f"GIF · {used_query}"}, minutes)
+        _set_media(
+            frames, {"kind": "gif", "label": f"GIF · {used_query}"},
+            minutes, preserve_hold,
+        )
         _render_current()
         _save_state()
         return jsonify(_api_payload())
@@ -1316,6 +1342,7 @@ def upload_media():
     minutes, err = _parse_revert_minutes(request.form.get("revert_minutes"))
     if err:
         return jsonify(error=err), 400
+    preserve_hold = _parse_preserve_hold(request.form.get("preserve_hold"))
     raw = file.read()
     try:
         frames = media.frames_from_bytes(raw)
@@ -1325,7 +1352,9 @@ def upload_media():
     media.save_current(raw, kind)
     label = file.filename[:40]
     with lock:
-        _set_media(frames, {"kind": kind, "label": label}, minutes)
+        _set_media(
+            frames, {"kind": kind, "label": label}, minutes, preserve_hold,
+        )
         _render_current()
         _save_state()
         return jsonify(_api_payload())
