@@ -1,8 +1,10 @@
 """Flask server that lets a phone control the KnockBlock LED status sign."""
 import argparse
 import getpass
+import hashlib
 import ipaddress
 import json
+import os
 import random
 import re
 import secrets
@@ -14,7 +16,16 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, render_template, request, send_file, session
+from flask import (
+    Flask,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+)
 from PIL import Image
 
 import auth
@@ -961,6 +972,41 @@ def preview():
     return response
 
 
+@app.route("/api/display/frame")
+def display_frame():
+    """The current panel frame as network-order RGB565 for thin clients.
+
+    This is deliberately a read-only view of the same image used by the Pi
+    panel and web preview.  A 64x32 frame is 4096 bytes; ETags let a client
+    poll frequently without retransmitting an unchanged screen.
+    """
+    with lock:
+        image = display.snapshot()
+    if image is None:
+        image = Image.new("RGB", (PANEL_COLS, PANEL_ROWS), (0, 0, 0))
+    image = image.convert("RGB")
+    pixels = bytearray(PANEL_COLS * PANEL_ROWS * 2)
+    offset = 0
+    for red, green, blue in image.getdata():
+        value = ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3)
+        pixels[offset] = value >> 8
+        pixels[offset + 1] = value & 0xFF
+        offset += 2
+    payload = bytes(pixels)
+    etag = hashlib.sha256(payload).hexdigest()[:24]
+    if request.if_none_match.contains(etag):
+        response = make_response("", 304)
+    else:
+        response = make_response(payload)
+        response.headers["Content-Type"] = "application/octet-stream"
+    response.set_etag(etag)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-KnockBlock-Width"] = str(PANEL_COLS)
+    response.headers["X-KnockBlock-Height"] = str(PANEL_ROWS)
+    response.headers["X-KnockBlock-Format"] = "rgb565-be"
+    return response
+
+
 THUMB_SCALE = 3
 
 
@@ -1419,7 +1465,7 @@ def main():
         _render_current(force=True)
         _save_state()
     threading.Thread(target=_scheduler_loop, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("KNOCKBLOCK_PORT", "5000")))
 
 
 if __name__ == "__main__":

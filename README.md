@@ -3,6 +3,11 @@
 A phone-controlled office status sign. Tap a button on your phone; the status
 instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
 
+It can also run with the web app in a Proxmox LXC and an ESP32-S3 at the
+panel. The LXC keeps the complete KnockBlock UI, scheduler, presets, GIFs,
+and renderer; the ESP32 displays those same rendered frames. See
+[ESP32 + Proxmox](#esp32--proxmox).
+
 ## Quick start
 
 On a fresh Raspberry Pi with the panel wired up (see [Hardware](#hardware)):
@@ -20,6 +25,61 @@ touches your password, state, or uploaded media.
 
 Prefer to see every step, or debugging a panel? The full walkthrough is in
 [Manual setup](#setup-step-by-step).
+
+## ESP32 + Proxmox
+
+This mode does not rebuild KnockBlock's screens on the microcontroller. The
+normal Flask application renders every 64x32 frame in a Debian/Ubuntu LXC,
+and the ESP32-S3 streams that exact frame to a HUB75 panel. No paid service is
+required. Weather is keyless; GIF search is the same optional provider setup
+described below.
+
+Inside a fresh Proxmox LXC, run as root:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/ahein624/KnockBlock/main/scripts/install-proxmox-lxc.sh
+bash install-proxmox-lxc.sh
+```
+
+The installer prints the controller URL. Open it from a phone on the same
+network, complete the claim screen, and leave the LXC running. It also
+advertises `_knockblock._tcp` with mDNS so the ESP32 normally needs no fixed
+controller IP.
+
+Build and upload the ESP32 firmware with PlatformIO:
+
+```bash
+cd firmware/esp32-knockblock
+cp include/config.example.hpp include/config.hpp
+# edit include/config.hpp with the Wi-Fi details
+pio run -t upload
+pio device monitor
+```
+
+The local `config.hpp` is ignored by Git. The checked-in example uses the
+hostname `kids-knockblock`; change it only if you want another device name.
+If the LXC and ESP32 are separated by VLANs that block multicast, set
+`KNOCKBLOCK_CONTROLLER_HOST` to the LXC IP in that file.
+
+### ESP32-S3 HUB75 wiring
+
+The firmware uses the ESP32 HUB75 DMA library's ESP32-S3 pin map for a 64x32,
+1/16-scan panel:
+
+| HUB75 | ESP32-S3 GPIO | HUB75 | ESP32-S3 GPIO |
+|---|---:|---|---:|
+| R1 | 4 | R2 | 7 |
+| G1 | 5 | G2 | 15 |
+| B1 | 6 | B2 | 16 |
+| A | 18 | B | 8 |
+| C | 3 | D | 42 |
+| E | not connected | LAT/STB | 40 |
+| OE | 2 | CLK | 41 |
+| GND | GND | | |
+
+Power the panel from a separate regulated 5V supply rated for at least 4A,
+and connect the supply ground to ESP32 ground. Do not power the panel from
+the ESP32's USB, 5V, or 3.3V pin.
 
 ## Features
 

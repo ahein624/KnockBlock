@@ -19,6 +19,10 @@ media/
 # Dev harness runtime files
 dev/state/
 
+# Local ESP32 Wi-Fi/controller credentials
+firmware/esp32-knockblock/include/config.hpp
+firmware/esp32-knockblock/.pio/
+
 # Self-update progress (written by scripts/update.sh)
 update_status.json
 
