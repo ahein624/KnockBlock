@@ -40,7 +40,7 @@ history.HISTORY_DIR = RUN_DIR
 import app as kb
 kb.STATE_FILE = RUN_DIR / "state.json"
 
-from matrix import MatrixDisplay
+from matrix import PANEL_COLS, PANEL_ROWS, MatrixDisplay
 
 kb.display = MatrixDisplay()
 # Never let the Update button reset the development checkout.
@@ -56,7 +56,10 @@ if os.environ.get("KNOCKBLOCK_DEV_FAKE_GIFS"):
         rng = _random.Random(seed)
         base = tuple(rng.randrange(30, 180) for _ in range(3))
         frames = [
-            Image.new("RGB", (64, 32), tuple(min(255, c + i * 20) for c in base))
+            Image.new(
+                "RGB", (PANEL_COLS, PANEL_ROWS),
+                tuple(min(255, c + i * 20) for c in base),
+            )
             for i in range(4)
         ]
         buf = BytesIO()

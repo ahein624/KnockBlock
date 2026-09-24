@@ -1,6 +1,6 @@
 """GIF/image handling for the panel: uploads and random funny GIFs.
 
-Anything displayed is normalized to a list of (64x32 RGB frame,
+Anything displayed is normalized to a list of (panel-sized RGB frame,
 duration_seconds) tuples. The original file is kept in media/ so the
 current GIF survives a restart.
 """
@@ -126,17 +126,21 @@ def _fire_text_layer():
 
     layer = Image.new("RGBA", (PANEL_COLS, PANEL_ROWS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
-    font = _font(10)
-    for text, y in (("THIS IS", 3), ("FINE.", 15)):
+    lines = ["THIS IS", "FINE."]
+    font, _, line_h = _fit_font(draw, lines, PANEL_COLS - 6, PANEL_ROWS - 8)
+    y = (PANEL_ROWS - line_h * len(lines)) // 2
+    for text in lines:
         bbox = draw.textbbox((0, 0), text, font=font)
         x = (PANEL_COLS - (bbox[2] - bbox[0])) // 2 - bbox[0]
         draw.text(
-            (x, y), text, font=font, fill=(255, 255, 255, 255),
+            (x, y - bbox[1]), text, font=font, fill=(255, 255, 255, 255),
             stroke_width=1, stroke_fill=(0, 0, 0, 255),
         )
+        y += line_h
     dog = _emoji_image("\U0001F436", 11)  # 🐶 — sits calmly in the flames
     if dog is not None:
-        layer.paste(dog, (2, 2), dog)
+        dog_y = 2 if PANEL_ROWS == 32 else max(2, (PANEL_ROWS - line_h * 2) // 2 - 14)
+        layer.paste(dog, (2, dog_y), dog)
     return layer
 
 
@@ -314,7 +318,8 @@ _NIGHT_CAT = (30, 28, 40)
 _NIGHT_Z = (55, 55, 80)
 
 _STARS = ((4, 4), (12, 10), (20, 3), (30, 8), (38, 2), (44, 12),
-          (58, 6), (61, 16), (8, 18), (26, 14))
+          (58, 6), (61, 16), (8, 18), (26, 14), (5, 34), (18, 42),
+          (37, 31), (53, 39), (61, 48))
 
 
 def _quiet_frame(t):
@@ -326,6 +331,8 @@ def _quiet_frame(t):
 
     # Stars: each twinkles on its own beat.
     for index, (x, y) in enumerate(_STARS):
+        if y >= PANEL_ROWS - 10:
+            continue
         bright = (t + index) % 4 == 0
         pixels[x, y] = _NIGHT_STAR_BRIGHT if bright else _NIGHT_STAR
 
@@ -334,18 +341,21 @@ def _quiet_frame(t):
     draw.ellipse([45, 2, 55, 12], fill=(0, 0, 0))
 
     # The cat, asleep on the bottom edge: body, head, ears, curled tail.
-    draw.ellipse([8, 25, 26, 31], fill=_NIGHT_CAT)          # body
-    draw.ellipse([22, 22, 30, 30], fill=_NIGHT_CAT)         # head
-    draw.polygon([(23, 23), (25, 19), (26, 23)], fill=_NIGHT_CAT)  # ear
-    draw.polygon([(27, 23), (29, 20), (30, 24)], fill=_NIGHT_CAT)  # ear
-    draw.arc([2, 24, 12, 34], 180, 300, fill=_NIGHT_CAT)    # tail
+    floor = PANEL_ROWS - 32
+    draw.ellipse([8, 25 + floor, 26, 31 + floor], fill=_NIGHT_CAT)  # body
+    draw.ellipse([22, 22 + floor, 30, 30 + floor], fill=_NIGHT_CAT)  # head
+    draw.polygon([(23, 23 + floor), (25, 19 + floor),
+                  (26, 23 + floor)], fill=_NIGHT_CAT)  # ear
+    draw.polygon([(27, 23 + floor), (29, 20 + floor),
+                  (30, 24 + floor)], fill=_NIGHT_CAT)  # ear
+    draw.arc([2, 24 + floor, 12, 34 + floor], 180, 300, fill=_NIGHT_CAT)  # tail
 
     # z z Z drifting up from the cat, looping on the frame count.
     font_small, font_big = _font(7), _font(9)
     for phase, (dx, size) in enumerate(((0, "s"), (3, "s"), (6, "b"))):
         rise = (t + phase * 2) % QUIET_FRAME_COUNT
         x = 33 + phase * 5 + rise // 3
-        y = 20 - rise * 2
+        y = 20 + floor - rise * 2
         if 0 <= y < PANEL_ROWS - 4:
             draw.text((x, y), "z" if size == "s" else "Z",
                       font=font_small if size == "s" else font_big, fill=_NIGHT_Z)
@@ -434,10 +444,14 @@ def _arcade_frame(t):
     draw = ImageDraw.Draw(image)
     pixels = image.load()
     scroll = (t * 2) % _WORLD
+    floor = PANEL_ROWS - 32
 
     # Clouds drift at half speed (parallax).
     cloud_scroll = (t) % _WORLD
-    for wx, y in ((10, 4), (58, 7), (96, 3)):
+    clouds = [(10, 4), (58, 7), (96, 3)]
+    if PANEL_ROWS > 32:
+        clouds += [(34, 25), (82, 35)]
+    for wx, y in clouds:
         sx = (wx - cloud_scroll) % _WORLD
         _wrapped(lambda b, y=y: (
             draw.rectangle([b, y + 1, b + 8, y + 2], fill=_CLOUD),
@@ -447,8 +461,8 @@ def _arcade_frame(t):
     # Bush on the ground line.
     sx = (62 - scroll) % _WORLD
     _wrapped(lambda b: (
-        draw.rectangle([b, 24, b + 9, 25], fill=_BUSH),
-        draw.rectangle([b + 2, 22, b + 7, 23], fill=_BUSH),
+        draw.rectangle([b, 24 + floor, b + 9, 25 + floor], fill=_BUSH),
+        draw.rectangle([b + 2, 22 + floor, b + 7, 23 + floor], fill=_BUSH),
     ), sx, 10)
 
     # Blinking coins.
@@ -456,32 +470,33 @@ def _arcade_frame(t):
     for wx in (24, 82):
         sx = (wx - scroll) % _WORLD
         _wrapped(lambda b: (
-            draw.rectangle([b, 11, b + 2, 14], fill=coin),
-            draw.rectangle([b + 1, 12, b + 1, 13], fill=_COIN_BRIGHT),
+            draw.rectangle([b, 11 + floor, b + 2, 14 + floor], fill=coin),
+            draw.rectangle([b + 1, 12 + floor, b + 1, 13 + floor], fill=_COIN_BRIGHT),
         ), sx, 3)
 
     # Pipes.
     for wx in (40, 100):
         sx = (wx - scroll) % _WORLD
         def pipe(b):
-            draw.rectangle([b + 1, 20, b + 8, 25], fill=_PIPE)
-            draw.rectangle([b + 2, 20, b + 3, 25], fill=_PIPE_DARK)
-            draw.rectangle([b, 18, b + 9, 19], fill=_PIPE_LIP)
+            draw.rectangle([b + 1, 20 + floor, b + 8, 25 + floor], fill=_PIPE)
+            draw.rectangle([b + 2, 20 + floor, b + 3, 25 + floor], fill=_PIPE_DARK)
+            draw.rectangle([b, 18 + floor, b + 9, 19 + floor], fill=_PIPE_LIP)
         _wrapped(pipe, sx, 10)
 
     # Brick ground: two 3px courses, mortar seams offset per course.
-    draw.rectangle([0, 26, PANEL_COLS - 1, PANEL_ROWS - 1], fill=_BRICK)
+    ground = 26 + floor
+    draw.rectangle([0, ground, PANEL_COLS - 1, PANEL_ROWS - 1], fill=_BRICK)
     for x in range(PANEL_COLS):
         world_x = (x + scroll) % _WORLD
         if world_x % 8 == 0:
-            pixels[x, 27] = _MORTAR
-            pixels[x, 28] = _MORTAR
+            pixels[x, 27 + floor] = _MORTAR
+            pixels[x, 28 + floor] = _MORTAR
         if world_x % 8 == 4:
-            pixels[x, 30] = _MORTAR
-            pixels[x, 31] = _MORTAR
+            pixels[x, 30 + floor] = _MORTAR
+            pixels[x, 31 + floor] = _MORTAR
     for x in range(PANEL_COLS):
-        pixels[x, 26] = _MORTAR if (x + scroll) % 2 else _BRICK
-        pixels[x, 29] = _MORTAR
+        pixels[x, 26 + floor] = _MORTAR if (x + scroll) % 2 else _BRICK
+        pixels[x, 29 + floor] = _MORTAR
 
     # The runner: jumps timed so each pipe passes underneath mid-flight.
     height = 0
@@ -489,7 +504,8 @@ def _arcade_frame(t):
         if start <= t <= start + 10:
             progress = (t - start) / 10
             height = round(12 * math.sin(math.pi * progress))
-    _draw_hero(pixels, 10, 18 - height, airborne=height > 0, stride=(t // 2) % 2)
+    _draw_hero(pixels, 10, 18 + floor - height,
+               airborne=height > 0, stride=(t // 2) % 2)
 
     return image
 
@@ -522,7 +538,7 @@ def _tenor_random(query):
         {"q": query, "key": TENOR_KEY, "limit": 1, "media_filter": "minimal"}
     )
     results = _get_json(url).get("results") or []
-    # nanogif is ~90px tall — plenty for a 64x32 panel and a tiny download.
+    # nanogif is ~90px tall — enough for the panel and still a tiny download.
     media = results[0]["media"][0]
     gif = media.get("nanogif") or media.get("tinygif") or media.get("gif")
     return _download(gif["url"])
@@ -636,5 +652,4 @@ def fetch_random_gif(query=None):
         except Exception:
             continue
     raise RuntimeError("couldn't fetch a GIF (providers unreachable)")
-
 

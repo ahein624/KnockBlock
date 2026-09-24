@@ -1,4 +1,4 @@
-"""Renders status presets to the Waveshare 64x32 HUB75 panel.
+"""Renders status presets to the stacked Waveshare HUB75 panels.
 
 Image composition (compose_preset, build_message_preset) works anywhere
 Pillow is installed, so screens can be previewed as PNGs without hardware.
@@ -18,10 +18,24 @@ try:
 except ImportError:
     RGBMatrix = None
 
-PANEL_ROWS = 32
-PANEL_COLS = 64
-CHAIN_LENGTH = 1
+PHYSICAL_PANEL_ROWS = 32
+PHYSICAL_PANEL_COLS = 64
+
+# Panels are daisy-chained and stacked vertically. The driver's V-mapper
+# turns its native 128x32 chain canvas into the 64x64 canvas used everywhere
+# else in the app. Set KNOCKBLOCK_PANEL_COUNT=1 for the original 64x32 sign.
+try:
+    PANEL_COUNT = int(os.environ.get("KNOCKBLOCK_PANEL_COUNT", "2"))
+except ValueError as exc:
+    raise RuntimeError("KNOCKBLOCK_PANEL_COUNT must be 1 or 2") from exc
+if PANEL_COUNT not in (1, 2):
+    raise RuntimeError("KNOCKBLOCK_PANEL_COUNT must be 1 or 2")
+
+PANEL_ROWS = PHYSICAL_PANEL_ROWS * PANEL_COUNT
+PANEL_COLS = PHYSICAL_PANEL_COLS
+CHAIN_LENGTH = PANEL_COUNT
 PARALLEL = 1
+PIXEL_MAPPER = "V-mapper" if PANEL_COUNT > 1 else ""
 
 # Generic HUB75 adapter board wired straight to the 40-pin header (no HAT
 # level-shifter IC). Verified working on this panel: slowdown 4 fixes the
@@ -102,7 +116,8 @@ def _emoji_image(emoji, px):
 
 def _fit_font(draw, lines, max_w, max_h):
     """Largest font size where every line fits max_w and the block fits max_h."""
-    for size in range(14, 5, -1):
+    max_size = 24 if PANEL_ROWS > PHYSICAL_PANEL_ROWS else 14
+    for size in range(max_size, 5, -1):
         line_h = size + 2
         if line_h * len(lines) > max_h:
             continue
@@ -130,7 +145,9 @@ def _wrap_greedy(words, font, draw, max_w):
     return lines
 
 
-def _wrap_text(text, max_w=PANEL_COLS - 4, max_lines=3):
+def _wrap_text(text, max_w=PANEL_COLS - 4, max_lines=None):
+    if max_lines is None:
+        max_lines = 5 if PANEL_ROWS > PHYSICAL_PANEL_ROWS else 3
     words = text.split()
     if not words:
         return []
@@ -169,7 +186,7 @@ def _wrap_text(text, max_w=PANEL_COLS - 4, max_lines=3):
 
 
 def compose_preset(preset):
-    """Compose a preset dict into a 64x32 RGB image."""
+    """Compose a preset dict into a panel-sized RGB image."""
     bg = tuple(preset.get("bg_color", (0, 0, 0)))
     text_color = tuple(preset.get("text_color", (255, 255, 255)))
     lines = [line for line in (preset.get("lines") or []) if line]
@@ -194,7 +211,18 @@ def compose_preset(preset):
             )
         return image
 
-    if icon:
+    if icon and PANEL_ROWS > PHYSICAL_PANEL_ROWS:
+        # A square display reads better as a poster: icon above, copy below.
+        icon = _emoji_image(emoji, 26)
+        text_top = 34
+        area_x = 2
+        area_w = PANEL_COLS - 4
+        font, size, line_h = _fit_font(
+            draw, lines, area_w, PANEL_ROWS - text_top - 2
+        )
+        image.paste(icon, ((PANEL_COLS - icon.width) // 2, 4), icon)
+        y = text_top + (PANEL_ROWS - text_top - line_h * len(lines)) // 2
+    elif icon:
         area_x = 2 + icon.width + 3
         area_w = PANEL_COLS - area_x - 2
         font, size, line_h = _fit_font(draw, lines, area_w, PANEL_ROWS - 2)
@@ -206,8 +234,9 @@ def compose_preset(preset):
         area_x = 2
         area_w = PANEL_COLS - 4
         font, size, line_h = _fit_font(draw, lines, area_w, PANEL_ROWS - 2)
-
-    y = (PANEL_ROWS - line_h * len(lines)) // 2
+        y = (PANEL_ROWS - line_h * len(lines)) // 2
+    elif PANEL_ROWS <= PHYSICAL_PANEL_ROWS:
+        y = (PANEL_ROWS - line_h * len(lines)) // 2
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
         text_w = bbox[2] - bbox[0]
@@ -240,10 +269,12 @@ def build_message_preset(text, color_name):
 
 def _build_options(brightness):
     options = RGBMatrixOptions()
-    options.rows = PANEL_ROWS
-    options.cols = PANEL_COLS
+    options.rows = PHYSICAL_PANEL_ROWS
+    options.cols = PHYSICAL_PANEL_COLS
     options.chain_length = CHAIN_LENGTH
     options.parallel = PARALLEL
+    if PIXEL_MAPPER:
+        options.pixel_mapper_config = PIXEL_MAPPER
     options.hardware_mapping = HARDWARE_MAPPING
     options.gpio_slowdown = GPIO_SLOWDOWN
     options.led_rgb_sequence = LED_RGB_SEQUENCE

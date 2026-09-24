@@ -24,6 +24,7 @@ import media
 import panel_themes
 import weather
 from matrix import (
+    PANEL_COUNT,
     PANEL_COLS,
     PANEL_ROWS,
     MatrixDisplay,
@@ -103,7 +104,7 @@ weather_data = None
 calendar_events = []  # last good fetch: [(start_ts, end_ts, summary), ...]
 calendar_fetched = 0
 render_signature = None
-media_frames = None  # [(64x32 RGB frame, seconds), ...] for status "media"
+media_frames = None  # [(panel-sized RGB frame, seconds), ...] for status "media"
 media_generation = 0  # bumps when new media is set, so playback restarts
 
 # The sign shows whichever *source* wins arbitration (see _arbitrate):
@@ -649,6 +650,11 @@ def _api_payload(demo=False):
         },
         "recents": state["recents"],
         "brightness": state["brightness"],
+        "panel": {
+            "width": PANEL_COLS,
+            "height": PANEL_ROWS,
+            "count": PANEL_COUNT,
+        },
         # Operational telemetry belongs in the authenticated settings UI,
         # not the public demo payload.
         "device_temp_f": None if demo else _device_temperature_f(),
@@ -941,6 +947,8 @@ def index():
         state=payload,
         labels_json=json.dumps({key: preset["label"] for key, preset in PRESETS.items()}),
         msg_colors_json=json.dumps({name: c["ui"] for name, c in MESSAGE_COLORS.items()}),
+        panel_cols=PANEL_COLS,
+        panel_rows=PANEL_ROWS,
     )
 
 

@@ -1,7 +1,8 @@
 # AH.knockblock
 
 A phone-controlled office status sign. Tap a button on your phone; the status
-instantly shows on a 64x32 HUB75 LED matrix driven by a Raspberry Pi 4.
+instantly shows on two vertically stacked 64×32 HUB75 LED panels, driven as
+one 64×64 display by a Raspberry Pi 4.
 
 ## Quick start
 
@@ -90,7 +91,7 @@ Prefer to see every step, or debugging a panel? The full walkthrough is in
   download from the providers' own CDNs. The old public demo keys have gone
   stale, so put a personal (free) key in `auth.json`:
   `{"giphy_key": "..."}` — it's tried first
-- **Screen designer** — a pixel editor for the 64×32 panel right in the
+- **Screen designer** — a pixel editor for the active panel size right in the
   phone UI: draw, flood-fill, undo, start from what the sign is showing,
   save favorites on the device, and send to the panel (rides the same
   manual-hold rules as uploads)
@@ -269,12 +270,20 @@ same URLs work from Apple Shortcuts ("Get Contents of URL") or cron.
 ## Hardware
 
 - Raspberry Pi 4 Model B
-- Waveshare 64x32 HUB75 RGB LED matrix panel
+- Two Waveshare 64×32 HUB75 RGB LED matrix panels, stacked vertically and
+  daisy-chained from the first panel's output to the second panel's input
 - Generic HUB75 adapter board plugged into the 40-pin GPIO header (no HAT
   level-shifter IC)
-- A separate 5V power supply for the panel, rated for at least 4A. **Do not**
-  power the panel from the Pi's 5V pins — a 64x32 panel at full brightness can
-  draw more current than the Pi can safely supply, and both will brown out.
+- A separate 5V power supply sized for both panels (at least 8A, with power
+  delivered to both panels and a common ground). **Do not** power either panel
+  from the Pi's 5V pins — the panels can draw more current than the Pi can
+  safely supply, and both will brown out.
+
+The app defaults to the two-panel 64×64 layout. It configures a chain length of
+2 and the driver's `V-mapper`, with both panels mounted right-side up. To run
+the original single-panel 64×32 layout, set `KNOCKBLOCK_PANEL_COUNT=1` in the
+service environment before starting KnockBlock. The API, live preview,
+thumbnails, uploads, animations, and screen designer all use the active size.
 
 ## Updating
 

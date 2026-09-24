@@ -174,7 +174,8 @@ def _eb_fit(draw, lines, max_w, max_h):
     a frame to respect."""
     from matrix import _font
 
-    for size in range(13, 5, -1):
+    max_size = 20 if PANEL_ROWS > 32 else 13
+    for size in range(max_size, 5, -1):
         line_h = size + 2
         if line_h * len(lines) > max_h:
             continue
@@ -218,12 +219,19 @@ def _eb_card(icon_art, palette, accent, lines):
 
     icon_w = max(len(line) for line in icon_art) * 2
     icon_h = len(icon_art) * 2
-    _stamp(pixels, icon_art, palette, 4, (PANEL_ROWS - icon_h) // 2)
-
-    area_x = 4 + icon_w + 3
-    area_w = PANEL_COLS - area_x - 3
-    font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - 6)
-    y = (PANEL_ROWS - line_h * len(lines)) // 2
+    if PANEL_ROWS > 32:
+        _stamp(pixels, icon_art, palette, (PANEL_COLS - icon_w) // 2, 5)
+        area_x = 3
+        area_w = PANEL_COLS - 6
+        text_top = max(27, icon_h + 9)
+        font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - text_top - 3)
+        y = text_top + (PANEL_ROWS - text_top - line_h * len(lines)) // 2
+    else:
+        _stamp(pixels, icon_art, palette, 4, (PANEL_ROWS - icon_h) // 2)
+        area_x = 4 + icon_w + 3
+        area_w = PANEL_COLS - area_x - 3
+        font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - 6)
+        y = (PANEL_ROWS - line_h * len(lines)) // 2
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
         x = area_x + max(0, (area_w - (bbox[2] - bbox[0])) // 2) - bbox[0]
@@ -301,17 +309,25 @@ def eightbit_clock(weather_data, now):
     icon = _EB_SUN if daytime else _EB_MOON
     palette = {"A": (230, 200, 40) if daytime else (200, 200, 120),
                "B": (230, 200, 40)}
-    icon_h = len(icon) * 2
-    _stamp(pixels, icon, palette, 4, (PANEL_ROWS - icon_h) // 2)
-
     time_str = now.strftime("%-I:%M")
     lines = [time_str]
     if weather_data:
         lines.append(f"{round(weather_data['temp'])}°")
-    area_x = 4 + max(len(r) for r in icon) * 2 + 3
-    area_w = PANEL_COLS - area_x - 3
-    font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - 6)
-    y = (PANEL_ROWS - line_h * len(lines)) // 2
+    icon_w = max(len(r) for r in icon) * 2
+    icon_h = len(icon) * 2
+    if PANEL_ROWS > 32:
+        _stamp(pixels, icon, palette, (PANEL_COLS - icon_w) // 2, 6)
+        area_x = 3
+        area_w = PANEL_COLS - 6
+        text_top = 25
+        font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - text_top - 3)
+        y = text_top + (PANEL_ROWS - text_top - line_h * len(lines)) // 2
+    else:
+        _stamp(pixels, icon, palette, 4, (PANEL_ROWS - icon_h) // 2)
+        area_x = 4 + icon_w + 3
+        area_w = PANEL_COLS - area_x - 3
+        font, line_h = _eb_fit(draw, lines, area_w, PANEL_ROWS - 6)
+        y = (PANEL_ROWS - line_h * len(lines)) // 2
     for index, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
         x = area_x + max(0, (area_w - (bbox[2] - bbox[0])) // 2) - bbox[0]

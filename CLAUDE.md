@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A phone-controlled LED status sign ("AH.knockblock"): a Flask app on a
-Raspberry Pi 4 drives a 64×32 HUB75 panel; a single-file vanilla-JS PWA
+Raspberry Pi 4 drives two vertically stacked 64×32 HUB75 panels as a 64×64
+display; a single-file vanilla-JS PWA
 (`templates/index.html`) controls it. **The production sign is exposed to
 the public internet** (via Cloudflare → a reverse proxy on the LAN → the
 Pi), so every new endpoint must decide its auth story deliberately.
@@ -69,8 +70,9 @@ swap code. The first-run claim wizard (`/setup`) only exists while no
 password is set and only answers LAN clients; `--set-password` is the
 only reset path.
 
-**Rendering pipeline.** `matrix.py` composes 64×32 PIL images
-(works anywhere) and drives the panel via the `rgbmatrix` C extension
+**Rendering pipeline.** `matrix.py` composes panel-sized PIL images (64×64 by
+default; `KNOCKBLOCK_PANEL_COUNT=1` keeps the original 64×32 layout), which
+works anywhere, and drives the panel via the `rgbmatrix` C extension
 (Pi only; `MatrixDisplay`). Animated statuses (uploads/GIFs via
 `media.frames_from_bytes`, procedural `fire_frames` and `arcade_frames`)
 loop in matrix.py's animation thread through `play_frames`; the phone
