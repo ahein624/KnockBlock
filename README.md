@@ -285,6 +285,76 @@ the original single-panel 64×32 layout, set `KNOCKBLOCK_PANEL_COUNT=1` in the
 service environment before starting KnockBlock. The API, live preview,
 thumbnails, uploads, animations, and screen designer all use the active size.
 
+### Two-panel wiring and configuration
+
+Mount both panels right-side up, one above the other. The first panel is the
+top half of the finished sign:
+
+```text
+Raspberry Pi HUB75 adapter
+          │
+          ▼
+┌────────────────────┐
+│ Top panel      IN   │  64×32
+│              OUT ──┼────────┐
+└────────────────────┘        │
+                              ▼
+┌────────────────────┐
+│ Bottom panel   IN   │  64×32
+└────────────────────┘
+
+Logical canvas: 64×64
+```
+
+Power both panels directly from the 5V supply. Do not carry panel power
+through the Pi or through the HUB75 ribbon cable. Connect the Pi/adapter and
+both panels to a common ground. With two panels, inject power into each panel
+rather than relying on one panel's power connector to feed the other.
+
+No software setting is needed for the normal two-panel arrangement. On start,
+KnockBlock configures the driver with these effective options:
+
+| Option | Value | Purpose |
+| --- | --- | --- |
+| Physical panel | 64 columns × 32 rows | Size of each Waveshare module |
+| Chain length | `2` | Top panel output feeds the bottom panel input |
+| Parallel chains | `1` | One HUB75 data chain from the Pi |
+| Pixel mapper | `V-mapper` | Presents the horizontal hardware chain as 64×64 |
+
+After wiring the second panel, update and restart the sign, then open Settings.
+**Panel style → Display** should read `64×64 · 2 panels`. The live preview and
+screen designer should both be square. For a hardware-only check, stop the
+service and run:
+
+```sh
+sudo systemctl stop knockblock
+sudo ./venv/bin/python3 hello_matrix.py
+# Press Ctrl+C after checking both halves.
+sudo systemctl start knockblock
+```
+
+To keep using one panel, add a systemd override:
+
+```sh
+sudo systemctl edit knockblock
+```
+
+```ini
+[Service]
+Environment=KNOCKBLOCK_PANEL_COUNT=1
+```
+
+Then apply it:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl restart knockblock
+```
+
+Remove that override, or change the value to `2`, before moving back to the
+stacked display. `KNOCKBLOCK_PANEL_COUNT` accepts only `1` or `2`; an invalid
+value deliberately prevents startup instead of driving an unknown layout.
+
 ## Updating
 
 Settings → Software → **Update sign** pulls the latest code, restarts the
@@ -406,6 +476,9 @@ these options in `matrix.py` one at a time and re-run `hello_matrix.py`:
 | Symptom | Try |
 | --- | --- |
 | Panel is completely blank | Check the panel's own power supply is on and wired to the panel (not just the Pi); confirm the ribbon cable orientation; try `hardware_mapping = "adafruit-hat"` if your adapter board has a level-shifter chip |
+| Top panel works but bottom panel is blank | Confirm the second panel has its own 5V power connection; check the ribbon from the top panel's `OUT` connector to the bottom panel's `IN`; confirm `KNOCKBLOCK_PANEL_COUNT` is not set to `1` |
+| Two halves appear beside each other or only half the picture is useful | Confirm the installed code includes `pixel_mapper_config = "V-mapper"`; Settings should report `64×64 · 2 panels` |
+| The top and bottom content are reversed | The panel connected directly to the Pi is the first/top panel. Swap the panel data order, not the power wiring |
 | Image is garbled / scrambled pixels | Increase `gpio_slowdown` (try 2, then 3, then 4) — the Pi is driving the GPIO faster than the panel can latch |
 | Flickering or dim/ghosting rows | Increase `gpio_slowdown`; confirm onboard audio is disabled (step 1) |
 | Colors are swapped (e.g. red/blue flipped) | Change `led_rgb_sequence` from `"RGB"` to `"RBG"`, `"GRB"`, etc. until colors match |
