@@ -285,6 +285,10 @@ the original single-panel 64×32 layout, set `KNOCKBLOCK_PANEL_COUNT=1` in the
 service environment before starting KnockBlock. The API, live preview,
 thumbnails, uploads, animations, and screen designer all use the active size.
 
+Building an enclosure for the stacked panels? The repository includes a
+[parametric case, dimensioned drawing, diffuser specification, and assembly
+guide](hardware/case/README.md).
+
 ### Two-panel wiring and configuration
 
 Mount both panels right-side up, one above the other. The first panel is the

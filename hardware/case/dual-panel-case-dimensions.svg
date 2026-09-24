@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#db6b2a"/>
+    </marker>
+    <style>
+      .bg{fill:#221a12}.case{fill:#36291d;stroke:#e6d1ae;stroke-width:3}.panel{fill:#111;stroke:#6f6254;stroke-width:2}.diff{fill:none;stroke:#73bfd8;stroke-width:2;stroke-dasharray:9 7}.dim{fill:none;stroke:#db6b2a;stroke-width:2;marker-start:url(#arrow);marker-end:url(#arrow)}.ext{stroke:#755f49;stroke-width:1.5}.label{fill:#f0dfc3;font-family:Arial,sans-serif;font-size:20px}.small{fill:#c9b79a;font-family:Arial,sans-serif;font-size:16px}.title{fill:#f0dfc3;font-family:Arial,sans-serif;font-size:28px;font-weight:bold}.layer{stroke:#221a12;stroke-width:2}.note{fill:#db6b2a;font-family:Arial,sans-serif;font-size:17px;font-weight:bold}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="760"/>
+  <text class="title" x="60" y="55">AH.knockblock — dual-panel case envelope</text>
+  <text class="small" x="60" y="84">All dimensions in millimetres. Verify both physical panels before printing.</text>
+
+  <!-- Front elevation, 2 px per mm -->
+  <text class="label" x="60" y="125">Front elevation</text>
+  <rect class="case" x="80" y="155" width="360" height="360" rx="14"/>
+  <polygon class="diff" points="112,171 408,171 424,187 424,483 408,499 112,499 96,483 96,187"/>
+  <rect class="panel" x="100" y="175" width="320" height="320"/>
+  <line x1="100" y1="335" x2="420" y2="335" stroke="#db6b2a" stroke-width="2"/>
+  <text class="small" x="218" y="328">panel seam</text>
+  <circle cx="244" cy="255" r="3" fill="#e6d1ae"/>
+  <circle cx="276" cy="255" r="3" fill="#e6d1ae"/>
+  <circle cx="308" cy="255" r="3" fill="#e6d1ae"/>
+  <circle cx="244" cy="287" r="3" fill="#e6d1ae"/>
+  <circle cx="276" cy="287" r="3" fill="#e6d1ae"/>
+  <circle cx="308" cy="287" r="3" fill="#e6d1ae"/>
+  <text class="small" x="175" y="548">Two 160 × 80 panels</text>
+  <line class="ext" x1="80" y1="535" x2="80" y2="585"/>
+  <line class="ext" x1="440" y1="535" x2="440" y2="585"/>
+  <line class="dim" x1="84" y1="575" x2="436" y2="575"/>
+  <text class="label" x="238" y="568">180</text>
+  <line class="ext" x1="60" y1="155" x2="25" y2="155"/>
+  <line class="ext" x1="60" y1="515" x2="25" y2="515"/>
+  <line class="dim" x1="35" y1="159" x2="35" y2="511"/>
+  <text class="label" x="18" y="345" transform="rotate(-90 18 345)">180</text>
+  <line class="ext" x1="100" y1="135" x2="100" y2="115"/>
+  <line class="ext" x1="420" y1="135" x2="420" y2="115"/>
+  <line class="dim" x1="104" y1="125" x2="416" y2="125"/>
+  <text class="small" x="238" y="117">160 image</text>
+
+  <!-- Side section -->
+  <text class="label" x="575" y="125">Side section</text>
+  <g transform="translate(600 175)">
+    <rect class="layer" x="0" y="0" width="28" height="320" fill="#59402c"/>
+    <rect class="layer" x="28" y="0" width="70" height="320" fill="#3e3024"/>
+    <rect class="layer" x="98" y="0" width="112" height="320" fill="#30251c"/>
+    <rect class="layer" x="210" y="0" width="224" height="320" fill="#49372a"/>
+    <rect x="15" y="16" width="14" height="288" fill="#b8dce6" opacity=".8"/>
+    <rect x="99" y="16" width="103" height="288" fill="#111"/>
+    <line class="ext" x1="0" y1="340" x2="0" y2="375"/>
+    <line class="ext" x1="434" y1="340" x2="434" y2="375"/>
+    <line class="dim" x1="4" y1="365" x2="430" y2="365"/>
+    <text class="label" x="208" y="358">62</text>
+    <line class="dim" x1="30" y1="-28" x2="96" y2="-28"/>
+    <text class="small" x="48" y="-36">10 gap</text>
+    <text class="small" x="-3" y="410">4</text>
+    <text class="small" x="45" y="410">10</text>
+    <text class="small" x="135" y="410">16</text>
+    <text class="small" x="306" y="410">32</text>
+  </g>
+  <text class="small" x="592" y="625">bezel</text>
+  <text class="small" x="661" y="625">optical spacer</text>
+  <text class="small" x="780" y="625">panel cradle</text>
+  <text class="small" x="950" y="625">electronics</text>
+  <text class="note" x="60" y="680">Diffuser: 164 × 164 × 2, corners clipped 8 × 8 • LED gap: 10 • panel pocket: 161 × 161</text>
+  <text class="small" x="60" y="714">External 5 V supply only. Power both panels separately and share ground with the Pi.</text>
+</svg>
