@@ -28,6 +28,7 @@ RUN_DIR = DEV_DIR / "state"
 if os.environ.get("KNOCKBLOCK_DEV_FRESH") and RUN_DIR.exists():
     shutil.rmtree(RUN_DIR)
 RUN_DIR.mkdir(exist_ok=True)
+os.environ["KNOCKBLOCK_STATE_FILE"] = str(RUN_DIR / "state.json")
 
 import auth
 auth.AUTH_FILE = RUN_DIR / "auth.json"

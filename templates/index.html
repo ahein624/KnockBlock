@@ -791,6 +791,11 @@
   }
   .daychip input:checked + span { background: var(--tan); border-color: var(--tan); color: var(--bg); }
   select.text-input { appearance: none; -webkit-appearance: none; }
+  .hardware-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hardware-field { display: grid; gap: 5px; font: 500 13px var(--font-body); }
+  .hardware-details summary { cursor: pointer; font: 600 14px var(--font-body); }
+  .hardware-details[open] summary { margin-bottom: 10px; }
+  .hardware-details .hint { margin-top: 0; }
 
   .token-row { display: flex; align-items: center; gap: 8px; }
   .token-row code {
@@ -1116,6 +1121,99 @@
         for everyone. 8-bit also restyles the clock and focus screens;
         custom messages always keep their own look.
       </p>
+      <details class="hardware-details" id="hardware-details">
+        <summary>Physical hardware configuration</summary>
+        <p class="hint">
+          Match these to the panel and adapter. Changes are saved immediately,
+          but take effect after restarting the KnockBlock service.
+        </p>
+        <div class="hardware-grid">
+          <label class="hardware-field">Rows per panel
+            <select class="text-input" id="hw-rows">
+              <option value="16">16</option><option value="32">32</option><option value="64">64</option>
+            </select>
+          </label>
+          <label class="hardware-field">Columns per panel
+            <select class="text-input" id="hw-cols">
+              <option value="32">32</option><option value="64">64</option>
+            </select>
+          </label>
+          <label class="hardware-field">Panels in chain
+            <select class="text-input" id="hw-chain">
+              {% for n in range(1, 5) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">Parallel chains
+            <select class="text-input" id="hw-parallel">
+              {% for n in range(1, 4) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">Pixel mapper
+            <select class="text-input" id="hw-mapper">
+              <option value="">None</option><option value="V-mapper">V-mapper</option>
+            </select>
+          </label>
+          <label class="hardware-field">GPIO mapping
+            <select class="text-input" id="hw-mapping">
+              <option value="regular">Regular</option>
+              <option value="adafruit-hat">Adafruit HAT</option>
+              <option value="adafruit-hat-pwm">Adafruit HAT PWM</option>
+              <option value="adafruit-hat-pwm-2">Adafruit HAT PWM-2</option>
+            </select>
+          </label>
+          <label class="hardware-field">RGB channel order
+            <select class="text-input" id="hw-rgb">
+              {% for seq in ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"] %}
+              <option value="{{ seq }}">{{ seq }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">GPIO slowdown
+            <select class="text-input" id="hw-slowdown">
+              {% for n in range(0, 11) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">Scan mode
+            <select class="text-input" id="hw-scan">
+              <option value="0">Progressive</option><option value="1">Interlaced</option>
+            </select>
+          </label>
+          <label class="hardware-field">Row address type
+            <select class="text-input" id="hw-row-address">
+              {% for n in range(0, 5) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">Multiplexing (library value)
+            <select class="text-input" id="hw-multiplexing">
+              {% for n in range(0, 19) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">PWM bits
+            <select class="text-input" id="hw-pwm-bits">
+              {% for n in range(1, 12) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="hardware-field">PWM LSB (ns)
+            <input class="text-input" id="hw-pwm-lsb" type="number" min="50" max="5000" step="10">
+          </label>
+          <label class="hardware-field">PWM dithering bits
+            <select class="text-input" id="hw-pwm-dither">
+              {% for n in range(0, 3) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="setting-row">
+          <span>Invert colors</span>
+          <label class="switch">
+            <input type="checkbox" id="hw-inverse-colors">
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="setting-row" id="hardware-restart-hint" hidden>
+          <span>Hardware changes pending. Restart the KnockBlock service to apply.</span>
+        </div>
+        <button class="token-btn" id="save-hardware">Save hardware settings</button>
+      </details>
     </div>
 
     <div class="group">
@@ -1412,6 +1510,26 @@
       $("panel-size").textContent =
         state.panel.width + "×" + state.panel.height +
         " · " + state.panel.count + (state.panel.count === 1 ? " panel" : " panels");
+      const hardware = settings.hardware || {};
+      const hardwareFields = {
+        "hw-rows": "rows", "hw-cols": "cols", "hw-chain": "chain_length",
+        "hw-parallel": "parallel", "hw-mapper": "pixel_mapper",
+        "hw-mapping": "hardware_mapping", "hw-rgb": "led_rgb_sequence",
+        "hw-slowdown": "gpio_slowdown", "hw-scan": "scan_mode",
+        "hw-row-address": "row_address_type", "hw-multiplexing": "multiplexing",
+        "hw-pwm-bits": "pwm_bits", "hw-pwm-lsb": "pwm_lsb_nanoseconds",
+        "hw-pwm-dither": "pwm_dither_bits",
+      };
+      for (const [id, key] of Object.entries(hardwareFields)) {
+        const field = $(id);
+        if (field && document.activeElement !== field && hardware[key] !== undefined) {
+          field.value = String(hardware[key]);
+        }
+      }
+      if (document.activeElement !== $("hw-inverse-colors")) {
+        $("hw-inverse-colors").checked = !!hardware.inverse_colors;
+      }
+      $("hardware-restart-hint").hidden = !state.panel.hardware_pending;
       const deviceTemp = state.device_temp_f;
       $("device-temp-lbl").textContent = typeof deviceTemp === "number"
         ? deviceTemp.toFixed(1) + "°F"
@@ -2226,6 +2344,30 @@
       if (!chip) return;
       buzz();
       sendUpdate({ settings: { panel_theme: chip.dataset.panelTheme } });
+    });
+
+    $("save-hardware").addEventListener("click", async () => {
+      const hardware = {
+        rows: Number($("hw-rows").value),
+        cols: Number($("hw-cols").value),
+        chain_length: Number($("hw-chain").value),
+        parallel: Number($("hw-parallel").value),
+        pixel_mapper: $("hw-mapper").value,
+        hardware_mapping: $("hw-mapping").value,
+        led_rgb_sequence: $("hw-rgb").value,
+        gpio_slowdown: Number($("hw-slowdown").value),
+        scan_mode: Number($("hw-scan").value),
+        row_address_type: Number($("hw-row-address").value),
+        multiplexing: Number($("hw-multiplexing").value),
+        pwm_bits: Number($("hw-pwm-bits").value),
+        pwm_lsb_nanoseconds: Number($("hw-pwm-lsb").value),
+        pwm_dither_bits: Number($("hw-pwm-dither").value),
+        inverse_colors: $("hw-inverse-colors").checked,
+      };
+      await sendUpdate({ settings: { hardware } });
+      if (state.panel && state.panel.hardware_pending) {
+        showToast("Saved. Restart the KnockBlock service to apply.");
+      }
     });
 
     $("sleep-scene-chips").addEventListener("click", (event) => {

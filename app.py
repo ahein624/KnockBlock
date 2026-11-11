@@ -3,6 +3,7 @@ import argparse
 import getpass
 import ipaddress
 import json
+import os
 import random
 import re
 import secrets
@@ -24,12 +25,14 @@ import media
 import panel_themes
 import weather
 from matrix import (
+    HARDWARE_SETTINGS,
     PANEL_COUNT,
     PANEL_COLS,
     PANEL_ROWS,
     MatrixDisplay,
     build_message_preset,
     compose_preset,
+    validate_hardware_settings,
 )
 from presets import (
     DEFAULT_MESSAGE_COLOR,
@@ -39,7 +42,9 @@ from presets import (
     PRESETS,
 )
 
-STATE_FILE = Path(__file__).resolve().parent / "state.json"
+STATE_FILE = Path(os.environ.get(
+    "KNOCKBLOCK_STATE_FILE", Path(__file__).resolve().parent / "state.json"
+))
 CPU_TEMP_FILE = Path("/sys/class/thermal/thermal_zone0/temp")
 MAX_MESSAGE_LENGTH = 80
 MAX_SIGN_NAME = 40
@@ -75,6 +80,7 @@ DEFAULT_SETTINGS = {
     "sleep_scene": "dark",  # "dark" = panel off, "moon" = dim night scene
     "ical_url": None,  # Google Calendar secret iCal address
     "manual_ttl_minutes": 120,  # 0 = manual presses hold forever
+    "hardware": dict(HARDWARE_SETTINGS),
 }
 
 # All black; what the panel shows during scheduled sleep.
@@ -315,6 +321,13 @@ def _load_state():
             merged["panel_theme"] = settings["panel_theme"]
         if settings.get("sleep_scene") in ("dark", "moon"):
             merged["sleep_scene"] = settings["sleep_scene"]
+        if isinstance(settings.get("hardware"), dict):
+            try:
+                merged["hardware"] = validate_hardware_settings(
+                    {**HARDWARE_SETTINGS, **settings["hardware"]}
+                )
+            except ValueError:
+                pass  # Ignore malformed hardware settings from an old state file.
         state["settings"] = merged
 
 
@@ -654,6 +667,8 @@ def _api_payload(demo=False):
             "width": PANEL_COLS,
             "height": PANEL_ROWS,
             "count": PANEL_COUNT,
+            "active_hardware": HARDWARE_SETTINGS,
+            "hardware_pending": state["settings"]["hardware"] != HARDWARE_SETTINGS,
         },
         # Operational telemetry belongs in the authenticated settings UI,
         # not the public demo payload.
@@ -1101,6 +1116,15 @@ def set_state():
                 if incoming["sleep_scene"] not in ("dark", "moon"):
                     return jsonify(error="sleep_scene must be 'dark' or 'moon'"), 400
                 settings["sleep_scene"] = incoming["sleep_scene"]
+            if "hardware" in incoming:
+                try:
+                    if not isinstance(incoming["hardware"], dict):
+                        raise ValueError("hardware must be an object")
+                    settings["hardware"] = validate_hardware_settings(
+                        {**settings["hardware"], **incoming["hardware"]}
+                    )
+                except (TypeError, ValueError) as exc:
+                    return jsonify(error=str(exc)), 400
             _render_current()
 
         if "schedules" in data:

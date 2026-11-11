@@ -1,13 +1,15 @@
-"""Renders status presets to the stacked Waveshare HUB75 panels.
+"""Renders status presets to a 64×64 HUB75 LED matrix.
 
 Image composition (compose_preset, build_message_preset) works anywhere
 Pillow is installed, so screens can be previewed as PNGs without hardware.
 Only MatrixDisplay needs the `rgbmatrix` C extension built from
 hzeller/rpi-rgb-led-matrix — see README.md.
 """
+import json
 import os
 import re
 import threading
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,31 +20,120 @@ try:
 except ImportError:
     RGBMatrix = None
 
-PHYSICAL_PANEL_ROWS = 32
-PHYSICAL_PANEL_COLS = 64
+DEFAULT_HARDWARE_SETTINGS = {
+    "rows": 64,
+    "cols": 64,
+    "chain_length": 1,
+    "parallel": 1,
+    "pixel_mapper": "",
+    "hardware_mapping": "regular",
+    "gpio_slowdown": 4,
+    "led_rgb_sequence": "RBG",
+    "scan_mode": 0,
+    "row_address_type": 0,
+    "multiplexing": 0,
+    "pwm_bits": 11,
+    "pwm_lsb_nanoseconds": 130,
+    "pwm_dither_bits": 0,
+    "inverse_colors": False,
+}
+HARDWARE_MAPPINGS = (
+    "regular", "adafruit-hat", "adafruit-hat-pwm", "adafruit-hat-pwm-2",
+)
+RGB_SEQUENCES = ("RGB", "RBG", "GRB", "GBR", "BRG", "BGR")
 
-# Panels are daisy-chained and stacked vertically. The driver's V-mapper
-# turns its native 128x32 chain canvas into the 64x64 canvas used everywhere
-# else in the app. Set KNOCKBLOCK_PANEL_COUNT=1 for the original 64x32 sign.
-try:
-    PANEL_COUNT = int(os.environ.get("KNOCKBLOCK_PANEL_COUNT", "2"))
-except ValueError as exc:
-    raise RuntimeError("KNOCKBLOCK_PANEL_COUNT must be 1 or 2") from exc
-if PANEL_COUNT not in (1, 2):
-    raise RuntimeError("KNOCKBLOCK_PANEL_COUNT must be 1 or 2")
 
-PANEL_ROWS = PHYSICAL_PANEL_ROWS * PANEL_COUNT
-PANEL_COLS = PHYSICAL_PANEL_COLS
-CHAIN_LENGTH = PANEL_COUNT
-PARALLEL = 1
-PIXEL_MAPPER = "V-mapper" if PANEL_COUNT > 1 else ""
+def validate_hardware_settings(value):
+    """Return normalized hardware settings or raise ValueError."""
+    if not isinstance(value, dict):
+        raise ValueError("hardware must be an object")
+    unknown = set(value) - set(DEFAULT_HARDWARE_SETTINGS)
+    if unknown:
+        raise ValueError("unknown hardware setting: " + sorted(map(str, unknown))[0])
+    config = dict(DEFAULT_HARDWARE_SETTINGS)
+    config.update(value)
+    for key in ("rows", "cols", "chain_length", "parallel"):
+        if isinstance(config[key], bool) or not isinstance(config[key], int):
+            raise ValueError(f"{key} must be an integer")
+    if isinstance(config["rows"], bool) or config["rows"] not in (16, 32, 64):
+        raise ValueError("physical rows must be 16, 32, or 64")
+    if isinstance(config["cols"], bool) or config["cols"] not in (32, 64):
+        raise ValueError("physical columns must be 32 or 64")
+    if isinstance(config["chain_length"], bool) or config["chain_length"] not in (1, 2, 3, 4):
+        raise ValueError("panel count in chain must be 1–4")
+    if isinstance(config["parallel"], bool) or config["parallel"] not in (1, 2, 3):
+        raise ValueError("parallel chains must be 1–3")
+    if config["pixel_mapper"] not in ("", "V-mapper"):
+        raise ValueError("pixel mapper must be None or V-mapper")
+    if config["pixel_mapper"] == "V-mapper" and not (
+        config["rows"] == 32 and config["cols"] == 64
+        and config["chain_length"] == 2 and config["parallel"] == 1
+    ):
+        raise ValueError("V-mapper requires two 64×32 panels in one chain")
+    if config["hardware_mapping"] not in HARDWARE_MAPPINGS:
+        raise ValueError("unsupported hardware mapping")
+    if config["led_rgb_sequence"] not in RGB_SEQUENCES:
+        raise ValueError("RGB sequence must be a permutation of RGB")
+    numeric_ranges = {
+        "gpio_slowdown": range(0, 11),
+        "scan_mode": range(0, 2),
+        "row_address_type": range(0, 5),
+        "multiplexing": range(0, 19),
+        "pwm_bits": range(1, 12),
+        "pwm_lsb_nanoseconds": range(50, 5001),
+        "pwm_dither_bits": range(0, 3),
+    }
+    for key, allowed in numeric_ranges.items():
+        if isinstance(config[key], bool) or not isinstance(config[key], int) or config[key] not in allowed:
+            raise ValueError(f"{key} is outside its supported range")
+    if not isinstance(config["inverse_colors"], bool):
+        raise ValueError("inverse_colors must be true or false")
+    return config
 
-# Generic HUB75 adapter board wired straight to the 40-pin header (no HAT
-# level-shifter IC). Verified working on this panel: slowdown 4 fixes the
-# "two white lines" garble, RBG fixes green rendering as blue.
-HARDWARE_MAPPING = "regular"
-GPIO_SLOWDOWN = 4
-LED_RGB_SEQUENCE = "RBG"
+
+def _saved_hardware_settings():
+    state_file = Path(os.environ.get(
+        "KNOCKBLOCK_STATE_FILE", Path(__file__).resolve().parent / "state.json"
+    ))
+    try:
+        saved = json.loads(state_file.read_text())
+        settings = saved.get("settings", {})
+        raw = settings.get("hardware")
+        if isinstance(raw, dict):
+            return validate_hardware_settings(raw)
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    # Retain compatibility with service overrides from the previous version.
+    legacy_count = os.environ.get("KNOCKBLOCK_PANEL_COUNT")
+    if legacy_count in ("1", "2"):
+        legacy = dict(DEFAULT_HARDWARE_SETTINGS)
+        legacy["rows"] = 32
+        if legacy_count == "2":
+            legacy.update(chain_length=2, pixel_mapper="V-mapper")
+        return legacy
+    return dict(DEFAULT_HARDWARE_SETTINGS)
+
+
+# The matrix geometry is read before app.py imports the image composers. UI
+# changes are saved to state.json and picked up the next time the service starts.
+HARDWARE_SETTINGS = _saved_hardware_settings()
+PHYSICAL_PANEL_ROWS = HARDWARE_SETTINGS["rows"]
+PHYSICAL_PANEL_COLS = HARDWARE_SETTINGS["cols"]
+CHAIN_LENGTH = HARDWARE_SETTINGS["chain_length"]
+PARALLEL = HARDWARE_SETTINGS["parallel"]
+PIXEL_MAPPER = HARDWARE_SETTINGS["pixel_mapper"]
+PANEL_COUNT = CHAIN_LENGTH * PARALLEL
+if PIXEL_MAPPER == "V-mapper":
+    PANEL_COLS, PANEL_ROWS = 64, 64
+else:
+    PANEL_COLS = PHYSICAL_PANEL_COLS * CHAIN_LENGTH
+    PANEL_ROWS = PHYSICAL_PANEL_ROWS * PARALLEL
+
+# Defaults for a generic HUB75 adapter and the current panel. The hardware
+# settings page lets these be adjusted for other panel and adapter variants.
+HARDWARE_MAPPING = HARDWARE_SETTINGS["hardware_mapping"]
+GPIO_SLOWDOWN = HARDWARE_SETTINGS["gpio_slowdown"]
+LED_RGB_SEQUENCE = HARDWARE_SETTINGS["led_rgb_sequence"]
 DEFAULT_BRIGHTNESS = 70
 
 FONT_CANDIDATES = [
@@ -116,7 +207,7 @@ def _emoji_image(emoji, px):
 
 def _fit_font(draw, lines, max_w, max_h):
     """Largest font size where every line fits max_w and the block fits max_h."""
-    max_size = 24 if PANEL_ROWS > PHYSICAL_PANEL_ROWS else 14
+    max_size = 24 if PANEL_ROWS > 32 else 14
     for size in range(max_size, 5, -1):
         line_h = size + 2
         if line_h * len(lines) > max_h:
@@ -147,7 +238,7 @@ def _wrap_greedy(words, font, draw, max_w):
 
 def _wrap_text(text, max_w=PANEL_COLS - 4, max_lines=None):
     if max_lines is None:
-        max_lines = 5 if PANEL_ROWS > PHYSICAL_PANEL_ROWS else 3
+        max_lines = 5 if PANEL_ROWS > 32 else 3
     words = text.split()
     if not words:
         return []
@@ -211,7 +302,7 @@ def compose_preset(preset):
             )
         return image
 
-    if icon and PANEL_ROWS > PHYSICAL_PANEL_ROWS:
+    if icon and PANEL_ROWS > 32:
         # A square display reads better as a poster: icon above, copy below.
         icon = _emoji_image(emoji, 26)
         text_top = 34
@@ -235,7 +326,7 @@ def compose_preset(preset):
         area_w = PANEL_COLS - 4
         font, size, line_h = _fit_font(draw, lines, area_w, PANEL_ROWS - 2)
         y = (PANEL_ROWS - line_h * len(lines)) // 2
-    elif PANEL_ROWS <= PHYSICAL_PANEL_ROWS:
+    elif PANEL_ROWS <= 32:
         y = (PANEL_ROWS - line_h * len(lines)) // 2
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -278,6 +369,13 @@ def _build_options(brightness):
     options.hardware_mapping = HARDWARE_MAPPING
     options.gpio_slowdown = GPIO_SLOWDOWN
     options.led_rgb_sequence = LED_RGB_SEQUENCE
+    options.scan_mode = HARDWARE_SETTINGS["scan_mode"]
+    options.row_address_type = HARDWARE_SETTINGS["row_address_type"]
+    options.multiplexing = HARDWARE_SETTINGS["multiplexing"]
+    options.pwm_bits = HARDWARE_SETTINGS["pwm_bits"]
+    options.pwm_lsb_nanoseconds = HARDWARE_SETTINGS["pwm_lsb_nanoseconds"]
+    options.pwm_dither_bits = HARDWARE_SETTINGS["pwm_dither_bits"]
+    options.inverse_colors = HARDWARE_SETTINGS["inverse_colors"]
     options.brightness = brightness
     options.disable_hardware_pulsing = True
     # The library normally drops from root to the 'daemon' user once the
