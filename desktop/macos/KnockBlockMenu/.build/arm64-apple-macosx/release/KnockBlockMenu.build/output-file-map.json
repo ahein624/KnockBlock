@@ -1,0 +1,37 @@
+{
+  "": {
+    "dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenu.d",
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenu.o",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/primary.swiftdeps"
+  },
+  "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KeychainStore.swift": {
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.swift.o",
+    "swiftmodule": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.swiftdeps",
+    "diagnostics": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.dia"
+  },
+  "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KnockBlockMenuApp.swift": {
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.swift.o",
+    "swiftmodule": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.swiftdeps",
+    "diagnostics": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.dia"
+  },
+  "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Models.swift": {
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.swift.o",
+    "swiftmodule": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.swiftdeps",
+    "diagnostics": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.dia"
+  },
+  "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/SignMonitor.swift": {
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.swift.o",
+    "swiftmodule": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.swiftdeps",
+    "diagnostics": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.dia"
+  },
+  "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Views.swift": {
+    "object": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.swift.o",
+    "swiftmodule": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views~partial.swiftmodule",
+    "swift-dependencies": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.swiftdeps",
+    "diagnostics": "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.dia"
+  }
+}

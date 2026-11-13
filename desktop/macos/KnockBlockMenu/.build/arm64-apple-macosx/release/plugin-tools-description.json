@@ -1,0 +1,307 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.KnockBlockMenu-arm64-apple-macosx-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/sources",
+      "importPath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KeychainStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KnockBlockMenuApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/SignMonitor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Views.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "KnockBlockMenu",
+      "moduleOutputPath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/Modules/KnockBlockMenu.swiftmodule",
+      "objects" : [
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.swift.o",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.swift.o",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.swift.o",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.swift.o",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "10",
+        "-serialize-diagnostics",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "KnockBlockMenu_main",
+        "-swift-version",
+        "6",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "knockblockmenu"
+      ],
+      "outputFileMapPath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/Modules/KnockBlockMenu.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KeychainStore.swift",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KnockBlockMenuApp.swift",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Models.swift",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/SignMonitor.swift",
+        "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Views.swift"
+      ],
+      "tempsPath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "KnockBlockMenu" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "KnockBlockMenu",
+      "-package-name",
+      "knockblockmenu",
+      "-c",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KeychainStore.swift",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KnockBlockMenuApp.swift",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Models.swift",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/SignMonitor.swift",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Views.swift",
+      "-I",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-serialize-diagnostics",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "KnockBlockMenu_main",
+      "-swift-version",
+      "6",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "knockblockmenu",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "KnockBlockMenu" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KeychainStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/KnockBlockMenuApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/SignMonitor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/Sources/KnockBlockMenu/Views.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/sources"
+    },
+    "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KeychainStore.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/KnockBlockMenuApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/SignMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.build/Views.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/KnockBlockMenu.product/Objects.LinkFileList"
+    },
+    "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/andrewhein/GitHub/KnockBlock/desktop/macos/KnockBlockMenu/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}
