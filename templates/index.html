@@ -1153,6 +1153,11 @@
               <option value="">None</option><option value="V-mapper">V-mapper</option>
             </select>
           </label>
+          <label class="hardware-field">Image rotation
+            <select class="text-input" id="hw-rotation">
+              <option value="0">0°</option><option value="180">180°</option>
+            </select>
+          </label>
           <label class="hardware-field">GPIO mapping
             <select class="text-input" id="hw-mapping">
               <option value="regular">Regular</option>
@@ -1514,6 +1519,7 @@
       const hardwareFields = {
         "hw-rows": "rows", "hw-cols": "cols", "hw-chain": "chain_length",
         "hw-parallel": "parallel", "hw-mapper": "pixel_mapper",
+        "hw-rotation": "rotation",
         "hw-mapping": "hardware_mapping", "hw-rgb": "led_rgb_sequence",
         "hw-slowdown": "gpio_slowdown", "hw-scan": "scan_mode",
         "hw-row-address": "row_address_type", "hw-multiplexing": "multiplexing",
@@ -2353,6 +2359,7 @@
         chain_length: Number($("hw-chain").value),
         parallel: Number($("hw-parallel").value),
         pixel_mapper: $("hw-mapper").value,
+        rotation: Number($("hw-rotation").value),
         hardware_mapping: $("hw-mapping").value,
         led_rgb_sequence: $("hw-rgb").value,
         gpio_slowdown: Number($("hw-slowdown").value),

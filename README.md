@@ -315,6 +315,12 @@ through the Pi or through the HUB75 ribbon cable. Connect the Pi/adapter and
 both panels to a common ground. With two panels, inject power into each panel
 rather than relying on one panel's power connector to feed the other.
 
+For an upside-down mounting, open **Settings → Panel style → Physical hardware
+configuration**, set **Image rotation** to **180°**, and save the hardware
+settings. Restart the Raspberry Pi's KnockBlock service to apply it
+(`sudo systemctl restart knockblock`). Rotation covers the complete image,
+including animations and the live preview.
+
 No software setting is needed for the normal two-panel arrangement. On start,
 KnockBlock configures the driver with these effective options:
 

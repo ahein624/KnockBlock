@@ -26,6 +26,7 @@ DEFAULT_HARDWARE_SETTINGS = {
     "chain_length": 1,
     "parallel": 1,
     "pixel_mapper": "",
+    "rotation": 0,
     "hardware_mapping": "regular",
     "gpio_slowdown": 4,
     "led_rgb_sequence": "RBG",
@@ -70,6 +71,8 @@ def validate_hardware_settings(value):
         and config["chain_length"] == 2 and config["parallel"] == 1
     ):
         raise ValueError("V-mapper requires two 64×32 panels in one chain")
+    if type(config["rotation"]) is not int or config["rotation"] not in (0, 180):
+        raise ValueError("rotation must be 0 or 180 degrees")
     if config["hardware_mapping"] not in HARDWARE_MAPPINGS:
         raise ValueError("unsupported hardware mapping")
     if config["led_rgb_sequence"] not in RGB_SEQUENCES:
@@ -411,6 +414,10 @@ class MatrixDisplay:
         self._anim_thread = None
 
     def _set_image(self, image):
+        # Rotate the complete logical canvas, including every animation frame.
+        # Keep the transformed image for previews and brightness re-pushes.
+        if HARDWARE_SETTINGS["rotation"] == 180:
+            image = image.transpose(Image.Transpose.ROTATE_180)
         with self._panel_lock:
             self._last_image = image
             self.matrix.SetImage(image)
