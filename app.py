@@ -901,6 +901,32 @@ def _app_version():
 
 
 APP_VERSION = _app_version()  # code can't change without a restart
+APP_INSTANCE = secrets.token_hex(16)  # Lets the phone confirm a new process is up.
+
+
+@app.route("/api/restart", methods=["GET", "POST"])
+def restart_service():
+    # Session or local only: API tokens must not be able to restart the sign.
+    if not (session.get("authed") or _is_local_request()):
+        return jsonify(error="unauthorized"), 401
+    if request.method == "GET":
+        response = jsonify(instance=APP_INSTANCE)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    if not (Path("/run/systemd/system").is_dir()
+            and shutil.which("systemd-run") and shutil.which("systemctl")):
+        return jsonify(error="service restart is only available on the Raspberry Pi"), 503
+    # A detached timer survives this service stopping. The delay lets the
+    # response reach the phone before systemd starts the restart.
+    try:
+        subprocess.run(
+            ["systemd-run", "--unit=knockblock-restart", "--collect",
+             "--on-active=2s", "systemctl", "restart", "knockblock"],
+            check=True, capture_output=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return jsonify(error="couldn't schedule the service restart; try again"), 500
+    return jsonify(started=True, instance=APP_INSTANCE), 202
 
 
 @app.route("/api/update", methods=["POST"])

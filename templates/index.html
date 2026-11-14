@@ -1124,8 +1124,8 @@
       <details class="hardware-details" id="hardware-details">
         <summary>Physical hardware configuration</summary>
         <p class="hint">
-          Match these to the panel and adapter. Changes are saved immediately,
-          but take effect after restarting the KnockBlock service.
+          Match these to the panel and adapter. Save changes, then restart
+          the sign to apply them.
         </p>
         <div class="hardware-grid">
           <label class="hardware-field">Rows per panel
@@ -1215,9 +1215,11 @@
           </label>
         </div>
         <div class="setting-row" id="hardware-restart-hint" hidden>
-          <span>Hardware changes pending. Restart the KnockBlock service to apply.</span>
+          <span>Hardware changes pending. Restart the sign to apply.</span>
         </div>
         <button class="token-btn" id="save-hardware">Save hardware settings</button>
+        <button class="token-btn" id="restart-btn">Restart sign</button>
+        <p class="hint" id="restart-hint" role="status">Applies saved settings. The sign will briefly disconnect.</p>
       </details>
     </div>
 
@@ -2373,7 +2375,7 @@
       };
       await sendUpdate({ settings: { hardware } });
       if (state.panel && state.panel.hardware_pending) {
-        showToast("Saved. Restart the KnockBlock service to apply.");
+        showToast("Saved. Tap Restart sign to apply.");
       }
     });
 
@@ -2573,6 +2575,46 @@
         if (insightsBox.open) loadInsights();
       });
     }
+
+    /* ---- service restart ---- */
+    $("restart-btn").addEventListener("click", async () => {
+      buzz();
+      $("restart-btn").disabled = true;
+      $("save-hardware").disabled = true;
+      $("restart-hint").textContent = "Restarting the sign…";
+      try {
+        const res = await fetch("/api/restart", { method: "POST" });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Couldn't restart the sign");
+        const deadline = Date.now() + 60000;
+        let restarted = false;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            const check = await fetch("/api/restart", {
+              cache: "no-store", signal: AbortSignal.timeout(5000),
+            });
+            if (check.status === 401) { location.href = "/login"; return; }
+            if (!check.ok) continue;
+            const current = await check.json();
+            if (current.instance && current.instance !== body.instance) {
+              restarted = true;
+              break;
+            }
+          } catch (err) { /* Expected while the service is restarting. */ }
+        }
+        if (!restarted) throw new Error("The sign hasn't come back yet. Check its connection.");
+        await syncState();
+        refreshPreview();
+        $("restart-hint").textContent = "Sign restarted. Saved settings are active.";
+      } catch (err) {
+        $("restart-hint").textContent = err.message || "Couldn't restart the sign";
+        showToast($("restart-hint").textContent, true);
+      } finally {
+        $("restart-btn").disabled = false;
+        $("save-hardware").disabled = false;
+      }
+    });
 
     /* ---- self-update ---- */
     const UPDATE_PHRASES = {

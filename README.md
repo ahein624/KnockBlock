@@ -233,6 +233,9 @@ or `?token=<token>`:
 - `POST /api/update` / `GET /api/update/status` — start the self-updater /
   watch its progress. Session or LAN only, like `GET|POST /api/token` —
   a leaked API token can't swap code or read credentials
+- `POST /api/restart` / `GET /api/restart` — restart the Raspberry Pi's
+  KnockBlock service / identify the running process to confirm it came back.
+  Session or LAN only; API tokens and demo clients cannot restart it
 - `GET /preview.png` — PNG of what the panel currently shows
 
 ## On-call laptop sensors
@@ -317,9 +320,9 @@ rather than relying on one panel's power connector to feed the other.
 
 For an upside-down mounting, open **Settings → Panel style → Physical hardware
 configuration**, set **Image rotation** to **180°**, and save the hardware
-settings. Restart the Raspberry Pi's KnockBlock service to apply it
-(`sudo systemctl restart knockblock`). Rotation covers the complete image,
-including animations and the live preview.
+settings, then tap **Restart sign** beside the save button to apply them.
+The app reconnects when the Raspberry Pi's KnockBlock service is back.
+Rotation covers the complete image, including animations and the live preview.
 
 No software setting is needed for the normal two-panel arrangement. On start,
 KnockBlock configures the driver with these effective options:
